@@ -77,6 +77,19 @@ public static partial class Program
 
     public static int Main(string[] args)
     {
+        try
+        {
+            return Run(args);
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine($"Upstream audit failed: {exception.Message.Trim()}");
+            return 2;
+        }
+    }
+
+    private static int Run(string[] args)
+    {
         AuditOptions options = AuditOptions.Parse(args);
         string[] apiBaseline = CreateApiBaseline();
 
@@ -86,6 +99,16 @@ public static partial class Program
             File.WriteAllLines(options.ApiBaselinePath, apiBaseline);
             Console.WriteLine($"Wrote API baseline with {apiBaseline.Length} entries.");
             return 0;
+        }
+
+        if (!Directory.Exists(options.UpstreamPath))
+        {
+            throw new DirectoryNotFoundException($"Upstream checkout not found: {options.UpstreamPath}");
+        }
+
+        if (!File.Exists(options.ApiBaselinePath))
+        {
+            throw new FileNotFoundException("API baseline not found.", options.ApiBaselinePath);
         }
 
         int failures = 0;
@@ -315,7 +338,9 @@ internal readonly record struct AuditOptions(
 {
     public static AuditOptions Parse(string[] args)
     {
-        string rootPath = Directory.GetCurrentDirectory();
+        string rootPath = FindRoot(Directory.GetCurrentDirectory())
+            ?? FindRoot(AppContext.BaseDirectory)
+            ?? Directory.GetCurrentDirectory();
         string? upstreamPath = null;
         string? apiBaselinePath = null;
         bool writeApiBaseline = false;
@@ -347,5 +372,22 @@ internal readonly record struct AuditOptions(
         upstreamPath ??= Path.Combine(rootPath, "artifacts", "upstream");
         apiBaselinePath ??= Path.Combine(rootPath, "tests", "RapidFuzzDotNet.Tests", "PublicApiBaseline.txt");
         return new AuditOptions(rootPath, upstreamPath, apiBaselinePath, writeApiBaseline);
+    }
+
+    private static string? FindRoot(string startPath)
+    {
+        DirectoryInfo? directory = new(Path.GetFullPath(startPath));
+
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "RapidFuzzDotNet.slnx")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        return null;
     }
 }

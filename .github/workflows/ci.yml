@@ -55,6 +55,24 @@ jobs:
         with:
           dotnet-version: 8.0.x
       - run: dotnet run --project tools/RapidFuzzDotNet.UpstreamAudit/RapidFuzzDotNet.UpstreamAudit.csproj -c Release -f net8.0 -- --root . --upstream artifacts/upstream
+      - run: ./RapidFuzzDotNet.UpstreamAudit
+        working-directory: tools/RapidFuzzDotNet.UpstreamAudit/bin/Release/net8.0
+      - name: Validate auditor failure contract
+        shell: bash
+        run: |
+          set +e
+          output=$(./tools/RapidFuzzDotNet.UpstreamAudit/bin/Release/net8.0/RapidFuzzDotNet.UpstreamAudit --invalid 2>&1)
+          status=$?
+          set -e
+          test "$status" -eq 2
+          case "$output" in
+            *"Upstream audit failed:"*) ;;
+            *) exit 1 ;;
+          esac
+          case "$output" in
+            *"Unhandled exception"*) exit 1 ;;
+            *) ;;
+          esac
 
   benchmark-smoke:
     strategy:
