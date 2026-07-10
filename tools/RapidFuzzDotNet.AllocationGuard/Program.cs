@@ -290,8 +290,8 @@ public static class Program
                 () => DamerauLevenshtein.Distance<int>(canonicalCrossDamerauSource, crossDamerauTarget),
                 "cross-type linear",
                 () => DamerauLevenshtein.Distance(crossDamerauSource, crossDamerauTarget, crossDamerauComparer),
-                2048,
-                512,
+                8192,
+                8192,
                 true,
                 4),
             new AllocationScenario(
