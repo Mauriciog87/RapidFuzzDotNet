@@ -1,0 +1,68 @@
+name: release
+
+on:
+  push:
+    tags: [v*]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - name: Validate tag
+        shell: pwsh
+        run: |
+          if ('${{ github.ref_name }}' -ne 'v1.0.0-beta.2') { throw 'Tag must match v1.0.0-beta.2.' }
+      - run: dotnet restore RapidFuzzDotNet.slnx
+      - run: dotnet build RapidFuzzDotNet.slnx -c Release --no-restore
+      - run: dotnet test tests/RapidFuzzDotNet.Tests/RapidFuzzDotNet.Tests.csproj -c Release --no-build
+      - run: dotnet pack src/RapidFuzzDotNet/RapidFuzzDotNet.csproj -c Release --no-build -o artifacts/package
+      - run: dotnet run --project tools/RapidFuzzDotNet.PackageVerifier/RapidFuzzDotNet.PackageVerifier.csproj -c Release -f net8.0 --no-build -- --package-dir artifacts/package
+      - name: Smoke install
+        shell: pwsh
+        run: |
+          foreach ($framework in @('net8.0', 'net10.0')) {
+            $path = Join-Path 'artifacts/smoke' $framework
+            dotnet new console --framework $framework --output $path
+            dotnet add $path package RapidFuzzDotNet --version 1.0.0-beta.2 --source artifacts/package
+            @'
+          using RapidFuzz;
+
+          if (Fuzz.Ratio("abc", "abc") != 100.0)
+          {
+              return 1;
+          }
+
+          if (Fuzz.QRatio<int>([1], [1]) != 100.0)
+          {
+              return 2;
+          }
+
+          ExtractedResult<string>? result = Process.ExtractOne("abc", ["abc", "def"]);
+          return result?.Index == 0 ? 0 : 3;
+          '@ | Set-Content -LiteralPath (Join-Path $path 'Program.cs')
+            dotnet run --project $path -c Release
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RapidFuzzDotNet-1.0.0-beta.2
+          path: |
+            artifacts/package/*.nupkg
+            artifacts/package/*.snupkg
+      - name: Publish package
+        if: ${{ secrets.NUGET_API_KEY != '' }}
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push artifacts/package/RapidFuzzDotNet.1.0.0-beta.2.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          dotnet nuget push artifacts/package/RapidFuzzDotNet.1.0.0-beta.2.snupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate

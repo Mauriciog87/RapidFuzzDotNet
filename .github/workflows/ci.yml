@@ -1,0 +1,80 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - run: dotnet restore RapidFuzzDotNet.slnx
+      - run: dotnet format RapidFuzzDotNet.slnx --no-restore --verify-no-changes
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest, ubuntu-24.04-arm]
+        framework: [net8.0, net10.0]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - run: dotnet restore RapidFuzzDotNet.slnx
+      - run: dotnet test tests/RapidFuzzDotNet.Tests/RapidFuzzDotNet.Tests.csproj -c Release -f ${{ matrix.framework }} --no-restore
+      - run: dotnet run --project tools/RapidFuzzDotNet.Fuzzing/RapidFuzzDotNet.Fuzzing.csproj -c Release -f ${{ matrix.framework }} -- --iterations 16 --seed 2100 --max-length 16 --target all --type all --profile quick
+      - run: dotnet run --project tools/RapidFuzzDotNet.AllocationGuard/RapidFuzzDotNet.AllocationGuard.csproj -c Release -f ${{ matrix.framework }}
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: rapidfuzz/rapidfuzz-cpp
+          ref: b5830af53bd1b3c7460a8de1e9f7095df99b3470
+          path: artifacts/upstream
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet run --project tools/RapidFuzzDotNet.UpstreamAudit/RapidFuzzDotNet.UpstreamAudit.csproj -c Release -f net8.0 -- --root . --upstream artifacts/upstream
+
+  package:
+    needs: [format, test, audit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - run: dotnet restore RapidFuzzDotNet.slnx
+      - run: dotnet build RapidFuzzDotNet.slnx -c Release --no-restore
+      - run: dotnet pack src/RapidFuzzDotNet/RapidFuzzDotNet.csproj -c Release --no-build -o artifacts/package
+      - run: dotnet run --project tools/RapidFuzzDotNet.PackageVerifier/RapidFuzzDotNet.PackageVerifier.csproj -c Release -f net8.0 --no-build -- --package-dir artifacts/package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RapidFuzzDotNet-packages
+          path: |
+            artifacts/package/*.nupkg
+            artifacts/package/*.snupkg

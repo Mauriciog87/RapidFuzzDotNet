@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/RapidFuzzDotNet.Benchmarks/RapidFuzzDotNet.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/RapidFuzzDotNet/RapidFuzzDotNet.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RapidFuzzDotNet.Tests/RapidFuzzDotNet.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/RapidFuzzDotNet.AllocationGuard/RapidFuzzDotNet.AllocationGuard.csproj" />
+    <Project Path="tools/RapidFuzzDotNet.Fuzzing/RapidFuzzDotNet.Fuzzing.csproj" />
+    <Project Path="tools/RapidFuzzDotNet.PackageVerifier/RapidFuzzDotNet.PackageVerifier.csproj" />
+    <Project Path="tools/RapidFuzzDotNet.UpstreamAudit/RapidFuzzDotNet.UpstreamAudit.csproj" />
+  </Folder>
+</Solution>

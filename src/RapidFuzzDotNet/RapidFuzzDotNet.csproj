@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <AssemblyName>RapidFuzzDotNet</AssemblyName>
+    <RootNamespace>RapidFuzz</RootNamespace>
+    <PackageId>RapidFuzzDotNet</PackageId>
+    <Version>1.0.0-beta.2</Version>
+    <Title>RapidFuzzDotNet</Title>
+    <Authors>RapidFuzzDotNet Contributors</Authors>
+    <Description>A pure managed .NET implementation of RapidFuzz-style fuzzy string matching algorithms.</Description>
+    <PackageTags>rapidfuzz;fuzzy;string-matching;levenshtein;similarity</PackageTags>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>Beta 2 completes rapidfuzz-cpp parity with generic QRatio and multi scorers, edit operation slicing, linear-space Damerau-Levenshtein, cached generic pattern vectors, portable SIMD batches, 64 upstream fixtures, nine deterministic fuzz targets, 77 upstream benchmark registrations, Process stabilization, package validation, and verified Source Link.</PackageReleaseNotes>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <RepositoryUrl>https://github.com/Mauriciog87/RapidFuzzDotNet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/Mauriciog87/RapidFuzzDotNet</PackageProjectUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" Link="LICENSE" />
+    <None Include="..\..\NOTICE" Pack="true" PackagePath="\" Link="NOTICE" />
+  </ItemGroup>
+</Project>

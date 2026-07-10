@@ -1,0 +1,24 @@
+name: upstream-drift
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: rapidfuzz/rapidfuzz-cpp
+          ref: main
+          path: artifacts/upstream
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet run --project tools/RapidFuzzDotNet.UpstreamAudit/RapidFuzzDotNet.UpstreamAudit.csproj -c Release -f net8.0 -- --root . --upstream artifacts/upstream

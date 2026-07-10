@@ -1,0 +1,6 @@
+RapidFuzzDotNet is an independent pure managed C# port derived from rapidfuzz-cpp.
+
+Upstream project: https://github.com/rapidfuzz/rapidfuzz-cpp
+Pinned upstream commit: b5830af53bd1b3c7460a8de1e9f7095df99b3470
+
+rapidfuzz-cpp is distributed under the MIT License and includes work by Max Bachmann, Adam Cohen, and other contributors.
