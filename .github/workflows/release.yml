@@ -2,7 +2,7 @@ name: release
 
 on:
   push:
-    tags: [v*]
+    tags: ['v*']
 
 permissions:
   contents: read
@@ -80,9 +80,12 @@ jobs:
             artifacts/package/*.nupkg
             artifacts/package/*.snupkg
       - name: Publish package
-        if: ${{ secrets.NUGET_API_KEY != '' }}
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        shell: pwsh
         run: |
-          dotnet nuget push artifacts/package/RapidFuzzDotNet.1.0.0-beta.2.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
-          dotnet nuget push artifacts/package/RapidFuzzDotNet.1.0.0-beta.2.snupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          if ([string]::IsNullOrWhiteSpace($env:NUGET_API_KEY)) {
+            Write-Output 'NUGET_API_KEY is not configured; package publication is skipped.'
+            exit 0
+          }
+          dotnet nuget push artifacts/package/RapidFuzzDotNet.1.0.0-beta.2.nupkg --api-key "$env:NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --symbol-api-key "$env:NUGET_API_KEY" --symbol-source https://api.nuget.org/v3/index.json --skip-duplicate
