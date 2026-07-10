@@ -2,7 +2,7 @@ using System.Buffers;
 
 namespace RapidFuzz.Distance;
 
-public static class DamerauLevenshtein
+public static partial class DamerauLevenshtein
 {
     private const int StackLimit = 256;
 

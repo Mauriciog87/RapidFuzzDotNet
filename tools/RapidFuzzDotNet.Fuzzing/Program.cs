@@ -210,6 +210,147 @@ internal sealed class FuzzRunner
             FuzzValue[] recordSecond = second.Select(value => new FuzzValue(value)).ToArray();
             ValidateTarget(target, recordFirst, recordSecond);
         }
+
+        if (options.IncludesType("cross"))
+        {
+            byte[] byteFirst = first.Select(value => (byte)value).ToArray();
+            char[] charFirst = first.Select(value => (char)('a' + value)).ToArray();
+            FuzzValue[] recordFirst = first.Select(value => new FuzzValue(value)).ToArray();
+            ValidateCrossTarget(target, byteFirst, first, second, new ByteIntComparer());
+            ValidateCrossTarget(target, charFirst, first, second, new CharIntComparer());
+            ValidateCrossTarget(target, recordFirst, first, second, new FuzzValueIntComparer());
+        }
+    }
+
+    private static void ValidateCrossTarget<TSource>(
+        string target,
+        TSource[] first,
+        int[] canonicalFirst,
+        int[] second,
+        ISequenceEqualityComparer<TSource, int> comparer)
+        where TSource : notnull, IEquatable<TSource>
+    {
+        if (target == "all" || target == "lcs_similarity")
+        {
+            RequireEqual(ReferenceScorers.LcsSimilarity<int>(canonicalFirst, second), LcsSeq.Similarity(first, second, comparer), "cross_lcs_similarity");
+        }
+
+        if (target == "all" || target == "levenshtein_distance")
+        {
+            RequireEqual(ReferenceScorers.LevenshteinDistance<int>(canonicalFirst, second), Levenshtein.Distance(first, second, comparer), "cross_levenshtein_distance");
+        }
+
+        if (target == "all" || target == "levenshtein_editops")
+        {
+            EditOperations editops = Levenshtein.Editops(first, second, comparer);
+            RequireSequence(second, editops.ApplyTo<int>(canonicalFirst, second), "cross_levenshtein_editops");
+            RequireSequence(second, editops.ToOpcodes().ApplyTo<int>(canonicalFirst, second), "cross_levenshtein_opcodes");
+        }
+
+        if (target == "all" || target == "indel_distance")
+        {
+            RequireEqual(ReferenceScorers.IndelDistance<int>(canonicalFirst, second), Indel.Distance(first, second, comparer), "cross_indel_distance");
+        }
+
+        if (target == "all" || target == "indel_editops")
+        {
+            EditOperations editops = Indel.Editops(first, second, comparer);
+            RequireSequence(second, editops.ApplyTo<int>(canonicalFirst, second), "cross_indel_editops");
+            RequireSequence(second, editops.ToOpcodes().ApplyTo<int>(canonicalFirst, second), "cross_indel_opcodes");
+        }
+
+        if (target == "all" || target == "osa_distance")
+        {
+            RequireEqual(ReferenceScorers.OsaDistance<int>(canonicalFirst, second), Osa.Distance(first, second, comparer), "cross_osa_distance");
+        }
+
+        if (target == "all" || target == "damerau_levenshtein_distance")
+        {
+            RequireEqual(
+                ReferenceScorers.DamerauLevenshteinDistance<int>(canonicalFirst, second),
+                DamerauLevenshtein.Distance(first, second, comparer),
+                "cross_damerau_levenshtein_distance");
+        }
+
+        if (target == "all" || target == "jaro_similarity")
+        {
+            RequireClose(ReferenceScorers.JaroSimilarity<int>(canonicalFirst, second), Jaro.Similarity(first, second, comparer), "cross_jaro_similarity");
+        }
+
+        if (target == "all" || target == "partial_ratio")
+        {
+            RequireClose(ReferenceScorers.PartialRatio<int>(canonicalFirst, second), Fuzz.PartialRatio(first, second, comparer), "cross_partial_ratio");
+        }
+
+        if (target == "all" || target == "cached")
+        {
+            ValidateCrossCached(first, canonicalFirst, second, comparer);
+        }
+
+        if (target == "all" || target == "multi")
+        {
+            ValidateCrossMulti(first, second, comparer);
+        }
+    }
+
+    private static void ValidateCrossCached<TSource>(
+        TSource[] first,
+        int[] canonicalFirst,
+        int[] second,
+        ISequenceEqualityComparer<TSource, int> comparer)
+        where TSource : notnull, IEquatable<TSource>
+    {
+        RequireEqual(Levenshtein.Distance<int>(canonicalFirst, second), new CachedLevenshtein<TSource>(first).Distance(second, comparer), "cross_cached_levenshtein");
+        RequireEqual(Indel.Distance<int>(canonicalFirst, second), new CachedIndel<TSource>(first).Distance(second, comparer), "cross_cached_indel");
+        RequireEqual(LcsSeq.Distance<int>(canonicalFirst, second), new CachedLcsSeq<TSource>(first).Distance(second, comparer), "cross_cached_lcs");
+        RequireEqual(Osa.Distance<int>(canonicalFirst, second), new CachedOsa<TSource>(first).Distance(second, comparer), "cross_cached_osa");
+        RequireEqual(DamerauLevenshtein.Distance<int>(canonicalFirst, second), new CachedDamerauLevenshtein<TSource>(first).Distance(second, comparer), "cross_cached_damerau");
+        RequireClose(Jaro.Similarity<int>(canonicalFirst, second), new CachedJaro<TSource>(first).Similarity(second, comparer), "cross_cached_jaro");
+        RequireClose(JaroWinkler.Similarity<int>(canonicalFirst, second), new CachedJaroWinkler<TSource>(first).Similarity(second, comparer), "cross_cached_jaro_winkler");
+        RequireClose(Fuzz.Ratio<int>(canonicalFirst, second), new CachedRatio<TSource>(first).Similarity(second, comparer), "cross_cached_ratio");
+        RequireClose(Fuzz.PartialRatio<int>(canonicalFirst, second), new CachedPartialRatio<TSource>(first).Similarity(second, comparer), "cross_cached_partial_ratio");
+        RequireClose(Fuzz.QRatio<int>(canonicalFirst, second), new CachedQRatio<TSource>(first).Similarity(second, comparer), "cross_cached_qratio");
+    }
+
+    private static void ValidateCrossMulti<TSource>(
+        TSource[] first,
+        int[] second,
+        ISequenceEqualityComparer<TSource, int> comparer)
+        where TSource : notnull, IEquatable<TSource>
+    {
+        TSource[][] sources = [first, first.ToArray(), []];
+        RequireSequence(
+            sources.Select(source => Levenshtein.Distance(source, second, comparer)).ToArray(),
+            new MultiLevenshtein<TSource>(sources).Distances(second, comparer),
+            "cross_multi_levenshtein");
+        RequireSequence(
+            sources.Select(source => Indel.Distance(source, second, comparer)).ToArray(),
+            new MultiIndel<TSource>(sources).Distances(second, comparer),
+            "cross_multi_indel");
+        RequireSequence(
+            sources.Select(source => LcsSeq.Similarity(source, second, comparer)).ToArray(),
+            new MultiLcsSeq<TSource>(sources).Similarities(second, comparer),
+            "cross_multi_lcs");
+        RequireSequence(
+            sources.Select(source => Osa.Distance(source, second, comparer)).ToArray(),
+            new MultiOsa<TSource>(sources).Distances(second, comparer),
+            "cross_multi_osa");
+        RequireDoubleSequence(
+            sources.Select(source => Jaro.Similarity(source, second, comparer)).ToArray(),
+            new MultiJaro<TSource>(sources).Similarities(second, comparer),
+            "cross_multi_jaro");
+        RequireDoubleSequence(
+            sources.Select(source => JaroWinkler.Similarity(source, second, comparer)).ToArray(),
+            new MultiJaroWinkler<TSource>(sources).Similarities(second, comparer),
+            "cross_multi_jaro_winkler");
+        RequireDoubleSequence(
+            sources.Select(source => Fuzz.Ratio(source, second, comparer)).ToArray(),
+            new MultiRatio<TSource>(sources).Similarities(second, comparer),
+            "cross_multi_ratio");
+        RequireDoubleSequence(
+            sources.Select(source => Fuzz.QRatio(source, second, comparer)).ToArray(),
+            new MultiQRatio<TSource>(sources).Similarities(second, comparer),
+            "cross_multi_qratio");
     }
 
     private static void ValidateTarget<T>(string target, T[] first, T[] second)
@@ -523,6 +664,21 @@ internal sealed class FuzzRunner
 
 internal readonly record struct FuzzValue(int Value);
 
+internal sealed class ByteIntComparer : ISequenceEqualityComparer<byte, int>
+{
+    public bool Equals(byte left, int right) => left == right;
+}
+
+internal sealed class CharIntComparer : ISequenceEqualityComparer<char, int>
+{
+    public bool Equals(char left, int right) => left - 'a' == right;
+}
+
+internal sealed class FuzzValueIntComparer : ISequenceEqualityComparer<FuzzValue, int>
+{
+    public bool Equals(FuzzValue left, int right) => left.Value == right;
+}
+
 internal readonly record struct FuzzReproduction(
     int Seed,
     string Target,
@@ -664,7 +820,7 @@ internal readonly record struct FuzzOptions(
 
     private static void ValidateSequenceType(string sequenceType)
     {
-        if (sequenceType is "all" or "int" or "byte" or "char" or "record")
+        if (sequenceType is "all" or "int" or "byte" or "char" or "record" or "cross")
         {
             return;
         }

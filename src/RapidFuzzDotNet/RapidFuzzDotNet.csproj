@@ -11,7 +11,7 @@
     <PackageTags>rapidfuzz;fuzzy;string-matching;levenshtein;similarity</PackageTags>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>Beta 2 completes rapidfuzz-cpp parity with generic QRatio and multi scorers, edit operation slicing, linear-space Damerau-Levenshtein, cached generic pattern vectors, portable SIMD batches, 64 upstream fixtures, nine deterministic fuzz targets, 77 upstream benchmark registrations, Process stabilization, package validation, and verified Source Link.</PackageReleaseNotes>
+    <PackageReleaseNotes>Beta 2 completes tracked rapidfuzz-cpp parity with cross-type sequence comparers, generic QRatio and multi scorers, edit operation slicing, linear-space Damerau-Levenshtein, pooled and cached generic pattern vectors, portable SIMD Jaro batches, 64 upstream fixtures, deterministic cross-type fuzzing, 77 upstream benchmark registrations, Process stabilization, package validation, and strict Source Link verification gates.</PackageReleaseNotes>
     <IsPackable>true</IsPackable>
     <IsAotCompatible>true</IsAotCompatible>
     <RepositoryUrl>https://github.com/Mauriciog87/RapidFuzzDotNet</RepositoryUrl>

@@ -8,11 +8,13 @@ internal sealed class GenericBatchIntegerMetricCore<T>
 {
     private readonly GenericBatchPatternScorer<T> scorer;
     private readonly GenericBatchMetric metric;
+    private readonly List<T[]> sources;
 
     public GenericBatchIntegerMetricCore(int capacity, GenericBatchMetric metric)
     {
         scorer = new GenericBatchPatternScorer<T>(capacity);
         this.metric = metric;
+        sources = new List<T[]>(capacity);
     }
 
     public GenericBatchIntegerMetricCore(IEnumerable<T[]> sources, GenericBatchMetric metric)
@@ -22,6 +24,7 @@ internal sealed class GenericBatchIntegerMetricCore<T>
         ICollection<T[]>? sourceCollection = sources as ICollection<T[]>;
         scorer = new GenericBatchPatternScorer<T>(sourceCollection?.Count ?? 0);
         this.metric = metric;
+        this.sources = new List<T[]>(sourceCollection?.Count ?? 0);
 
         foreach (T[] source in sources)
         {
@@ -36,7 +39,14 @@ internal sealed class GenericBatchIntegerMetricCore<T>
 
     public int Count => scorer.Count;
 
-    public void Insert(ReadOnlySpan<T> source) => scorer.Insert(source);
+    public void Insert(ReadOnlySpan<T> source)
+    {
+        T[] copy = source.ToArray();
+        sources.Add(copy);
+        scorer.Insert(copy);
+    }
+
+    public ReadOnlySpan<T> GetSource(int index) => sources[index];
 
     public int[] Distances(ReadOnlySpan<T> target, int scoreCutoff, int scoreHint)
     {

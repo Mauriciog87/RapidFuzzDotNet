@@ -173,7 +173,7 @@ public sealed class CachedLevenshtein
     }
 }
 
-public sealed class CachedIndel
+public sealed partial class CachedIndel
 {
     private readonly string source;
     private readonly PatternMatchVector? smallPattern;
@@ -270,7 +270,7 @@ public sealed class CachedIndel
         return Indel.Opcodes(source, target);
     }
 
-    private int Distance(ReadOnlySpan<char> target, int scoreCutoff, int scoreHint)
+    internal int Distance(ReadOnlySpan<char> target, int scoreCutoff, int scoreHint)
     {
         DistanceHelpers.ValidateScoreCutoff(scoreCutoff);
         DistanceHelpers.ValidateScoreHint(scoreHint);
@@ -761,7 +761,7 @@ public sealed class CachedPostfix
     }
 }
 
-public sealed class CachedLevenshtein<T>
+public sealed partial class CachedLevenshtein<T>
     where T : notnull, IEquatable<T>
 {
     private readonly T[] source;
@@ -867,7 +867,7 @@ public sealed class CachedLevenshtein<T>
     }
 }
 
-public sealed class CachedIndel<T>
+public sealed partial class CachedIndel<T>
     where T : notnull, IEquatable<T>
 {
     private readonly T[] source;
@@ -936,7 +936,7 @@ public sealed class CachedIndel<T>
     }
 }
 
-public sealed class CachedHamming<T>
+public sealed partial class CachedHamming<T>
     where T : notnull, IEquatable<T>
 {
     private readonly T[] source;
@@ -974,7 +974,7 @@ public sealed class CachedHamming<T>
     }
 }
 
-public sealed class CachedLcsSeq<T>
+public sealed partial class CachedLcsSeq<T>
     where T : notnull, IEquatable<T>
 {
     private readonly T[] source;
@@ -1039,7 +1039,7 @@ public sealed class CachedLcsSeq<T>
     }
 }
 
-public sealed class CachedOsa<T>
+public sealed partial class CachedOsa<T>
     where T : notnull, IEquatable<T>
 {
     private readonly T[] source;
@@ -1103,7 +1103,7 @@ public sealed class CachedOsa<T>
     }
 }
 
-public sealed class CachedDamerauLevenshtein<T>
+public sealed partial class CachedDamerauLevenshtein<T>
     where T : notnull, IEquatable<T>
 {
     private readonly T[] source;
@@ -1134,7 +1134,7 @@ public sealed class CachedDamerauLevenshtein<T>
     }
 }
 
-public sealed class CachedJaro<T>
+public sealed partial class CachedJaro<T>
     where T : notnull, IEquatable<T>
 {
     private readonly GenericJaroPattern<T> pattern;
@@ -1173,7 +1173,7 @@ public sealed class CachedJaro<T>
     }
 }
 
-public sealed class CachedJaroWinkler<T>
+public sealed partial class CachedJaroWinkler<T>
     where T : notnull, IEquatable<T>
 {
     private readonly GenericJaroPattern<T> pattern;
@@ -1215,7 +1215,7 @@ public sealed class CachedJaroWinkler<T>
     }
 }
 
-public sealed class CachedPrefix<T>
+public sealed partial class CachedPrefix<T>
     where T : notnull, IEquatable<T>
 {
     private readonly T[] source;
@@ -1246,7 +1246,7 @@ public sealed class CachedPrefix<T>
     }
 }
 
-public sealed class CachedPostfix<T>
+public sealed partial class CachedPostfix<T>
     where T : notnull, IEquatable<T>
 {
     private readonly T[] source;

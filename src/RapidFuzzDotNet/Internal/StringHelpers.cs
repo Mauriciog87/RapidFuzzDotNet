@@ -1,3 +1,5 @@
+using System.Buffers;
+
 namespace RapidFuzz.Internal;
 
 internal static class StringHelpers
@@ -14,7 +16,40 @@ internal static class StringHelpers
 
     public static TokenizedString CreateTokenizedString(ReadOnlySpan<char> value)
     {
-        return CreateTokenizedString(value.ToString());
+        int tokenCount = CountTokens(value);
+
+        if (tokenCount == 0)
+        {
+            return TokenizedString.Empty;
+        }
+
+        TokenOffset[] rentedOffsets = ArrayPool<TokenOffset>.Shared.Rent(tokenCount);
+        Span<TokenOffset> offsets = rentedOffsets.AsSpan(0, tokenCount);
+        FillTokenOffsets(value, offsets);
+        SortTokenOffsets(value, offsets);
+        int sortedLength = MeasureTokenOffsets(offsets);
+        char[]? rentedCharacters = null;
+        Span<char> characters = sortedLength <= 256
+            ? stackalloc char[sortedLength]
+            : (rentedCharacters = ArrayPool<char>.Shared.Rent(sortedLength)).AsSpan(0, sortedLength);
+
+        try
+        {
+            WriteTokenOffsets(value, offsets, characters);
+            string sorted = new(characters);
+            TokenRange[] sortedTokens = CreateJoinedTokenRanges(sorted, offsets);
+            TokenRange[] uniqueTokens = CreateUniqueTokens(sortedTokens);
+            return new TokenizedString(sortedTokens, new TokenSet(uniqueTokens), sorted);
+        }
+        finally
+        {
+            ArrayPool<TokenOffset>.Shared.Return(rentedOffsets, clearArray: true);
+
+            if (rentedCharacters is not null)
+            {
+                ArrayPool<char>.Shared.Return(rentedCharacters, clearArray: true);
+            }
+        }
     }
 
     public static TokenizedString CreateTokenizedString(string value)
@@ -42,16 +77,162 @@ internal static class StringHelpers
             return [];
         }
 
-        string source = value.ToString();
-        TokenRange[] tokens = CreateTokenRanges(source, tokenCount);
         List<string> result = new(tokenCount);
+        int tokenStart = -1;
 
-        for (int i = 0; i < tokens.Length; i++)
+        for (int index = 0; index <= value.Length; index++)
         {
-            result.Add(tokens[i].ToString());
+            bool atEnd = index == value.Length;
+
+            if (atEnd || char.IsWhiteSpace(value[index]))
+            {
+                if (tokenStart >= 0)
+                {
+                    result.Add(new string(value[tokenStart..index]));
+                    tokenStart = -1;
+                }
+            }
+            else if (tokenStart < 0)
+            {
+                tokenStart = index;
+            }
         }
 
         return result;
+    }
+
+    private static void FillTokenOffsets(ReadOnlySpan<char> source, Span<TokenOffset> offsets)
+    {
+        int tokenIndex = 0;
+        int tokenStart = -1;
+
+        for (int index = 0; index <= source.Length; index++)
+        {
+            bool atEnd = index == source.Length;
+
+            if (atEnd || char.IsWhiteSpace(source[index]))
+            {
+                if (tokenStart >= 0)
+                {
+                    offsets[tokenIndex] = new TokenOffset(tokenStart, index - tokenStart);
+                    tokenIndex++;
+                    tokenStart = -1;
+                }
+            }
+            else if (tokenStart < 0)
+            {
+                tokenStart = index;
+            }
+        }
+    }
+
+    private static void SortTokenOffsets(ReadOnlySpan<char> source, Span<TokenOffset> offsets)
+    {
+        if (offsets.Length > 1)
+        {
+            QuickSortTokenOffsets(source, offsets, 0, offsets.Length - 1);
+        }
+    }
+
+    private static void QuickSortTokenOffsets(ReadOnlySpan<char> source, Span<TokenOffset> offsets, int left, int right)
+    {
+        while (left < right)
+        {
+            int lower = left;
+            int upper = right;
+            TokenOffset pivot = offsets[left + (right - left) / 2];
+
+            while (lower <= upper)
+            {
+                while (CompareTokenOffsets(source, offsets[lower], pivot) < 0)
+                {
+                    lower++;
+                }
+
+                while (CompareTokenOffsets(source, offsets[upper], pivot) > 0)
+                {
+                    upper--;
+                }
+
+                if (lower <= upper)
+                {
+                    (offsets[lower], offsets[upper]) = (offsets[upper], offsets[lower]);
+                    lower++;
+                    upper--;
+                }
+            }
+
+            if (upper - left < right - lower)
+            {
+                if (left < upper)
+                {
+                    QuickSortTokenOffsets(source, offsets, left, upper);
+                }
+
+                left = lower;
+            }
+            else
+            {
+                if (lower < right)
+                {
+                    QuickSortTokenOffsets(source, offsets, lower, right);
+                }
+
+                right = upper;
+            }
+        }
+    }
+
+    private static int CompareTokenOffsets(ReadOnlySpan<char> source, TokenOffset first, TokenOffset second)
+    {
+        ReadOnlySpan<char> firstSpan = source.Slice(first.Start, first.Length);
+        ReadOnlySpan<char> secondSpan = source.Slice(second.Start, second.Length);
+        return firstSpan.SequenceCompareTo(secondSpan);
+    }
+
+    private static int MeasureTokenOffsets(ReadOnlySpan<TokenOffset> offsets)
+    {
+        int length = Math.Max(0, offsets.Length - 1);
+
+        for (int index = 0; index < offsets.Length; index++)
+        {
+            length += offsets[index].Length;
+        }
+
+        return length;
+    }
+
+    private static void WriteTokenOffsets(ReadOnlySpan<char> source, ReadOnlySpan<TokenOffset> offsets, Span<char> destination)
+    {
+        int position = 0;
+
+        for (int index = 0; index < offsets.Length; index++)
+        {
+            if (index > 0)
+            {
+                destination[position] = ' ';
+                position++;
+            }
+
+            TokenOffset offset = offsets[index];
+            source.Slice(offset.Start, offset.Length).CopyTo(destination[position..]);
+            position += offset.Length;
+        }
+    }
+
+    private static TokenRange[] CreateJoinedTokenRanges(string sorted, ReadOnlySpan<TokenOffset> offsets)
+    {
+        TokenRange[] tokens = new TokenRange[offsets.Length];
+        int position = 0;
+
+        for (int index = 0; index < offsets.Length; index++)
+        {
+            int length = offsets[index].Length;
+            tokens[index] = new TokenRange(sorted, position, length);
+            position += length + 1;
+        }
+
+        return tokens;
     }
 
     private static TokenRange[] CreateTokenRanges(string source, int tokenCount)
@@ -275,6 +456,8 @@ internal static class StringHelpers
 
         return size;
     }
+
+    private readonly record struct TokenOffset(int Start, int Length);
 }
 
 internal readonly struct TokenRange
@@ -359,6 +542,12 @@ internal sealed class TokenizedString
         SortedTokens = sortedTokens;
         TokenSet = tokenSet;
         Size = StringHelpers.MeasureJoinedTokens(sortedTokens);
+    }
+
+    public TokenizedString(IReadOnlyList<TokenRange> sortedTokens, TokenSet tokenSet, string sorted)
+        : this(sortedTokens, tokenSet)
+    {
+        this.sorted = sorted;
     }
 
     public IReadOnlyList<TokenRange> SortedTokens { get; }

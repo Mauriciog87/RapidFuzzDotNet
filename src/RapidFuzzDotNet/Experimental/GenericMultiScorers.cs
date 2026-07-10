@@ -2,7 +2,7 @@ namespace RapidFuzz.Experimental;
 
 using RapidFuzz.Distance.Experimental;
 
-public sealed class MultiRatio<T>
+public sealed partial class MultiRatio<T>
     where T : notnull, IEquatable<T>
 {
     private readonly GenericBatchIntegerMetricCore<T> core;
@@ -22,7 +22,7 @@ public sealed class MultiRatio<T>
         core.Ratios(target, destination, scoreCutoff, scoreHint, false);
 }
 
-public sealed class MultiQRatio<T>
+public sealed partial class MultiQRatio<T>
     where T : notnull, IEquatable<T>
 {
     private readonly GenericBatchIntegerMetricCore<T> core;

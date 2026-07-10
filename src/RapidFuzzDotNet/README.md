@@ -41,6 +41,25 @@ EditOperations edits = Levenshtein.Editops<int>(first, second);
 int[] transformed = edits.ApplyTo<int>(first, second);
 ```
 
+Sequences with different element types use an explicit source-target comparer. Equality is always evaluated in that orientation.
+
+```csharp
+using RapidFuzz;
+using RapidFuzz.Distance;
+
+byte[] source = [1, 2, 3];
+int[] target = [1, 3, 2];
+ISequenceEqualityComparer<byte, int> comparer = new ByteIntComparer();
+int distance = Levenshtein.Distance(source, target, comparer);
+
+sealed class ByteIntComparer : ISequenceEqualityComparer<byte, int>
+{
+    public bool Equals(byte left, int right) => left == right;
+}
+```
+
+The cross-type overloads cover static, cached, edit operation, and generic multi scorers. `ApplyTo<T>` remains single-type because a cross-type edit script has no unambiguous result element type.
+
 ## Cached Scorers
 
 Cached scorers defensively copy or materialize their source and reuse precomputed pattern state.

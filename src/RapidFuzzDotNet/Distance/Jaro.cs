@@ -4,7 +4,7 @@ using RapidFuzz.Internal;
 
 namespace RapidFuzz.Distance;
 
-public static class Jaro
+public static partial class Jaro
 {
     public static double Distance(string first, string second, double scoreCutoff = 1.0)
     {
@@ -50,7 +50,8 @@ public static class Jaro
         DistanceHelpers.ValidateNormalizedHint(scoreHint);
 
         double similarityCutoff = scoreCutoff >= 1.0 ? 0.0 : 1.0 - scoreCutoff;
-        double distance = 1.0 - SequenceMetrics.JaroSimilarity(first, second, similarityCutoff);
+        GenericJaroPattern<T> pattern = new(first);
+        double distance = 1.0 - pattern.Similarity(second, similarityCutoff);
         return distance <= scoreCutoff ? distance : 1.0;
     }
 
@@ -96,7 +97,7 @@ public static class Jaro
         DistanceHelpers.ValidateNormalizedCutoff(scoreCutoff);
         DistanceHelpers.ValidateNormalizedHint(scoreHint);
 
-        double similarity = SequenceMetrics.JaroSimilarity(first, second, scoreCutoff);
+        double similarity = PooledGenericPatternMetrics.JaroSimilarity(first, second, scoreCutoff);
         return similarity >= scoreCutoff ? similarity : 0.0;
     }
 

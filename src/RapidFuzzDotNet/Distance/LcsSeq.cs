@@ -2,7 +2,7 @@ using RapidFuzz.Internal;
 
 namespace RapidFuzz.Distance;
 
-public static class LcsSeq
+public static partial class LcsSeq
 {
     private static readonly byte[][] MblevenMatrix =
     [
@@ -157,7 +157,17 @@ public static class LcsSeq
         DistanceHelpers.ValidateScoreCutoff(scoreCutoff);
         DistanceHelpers.ValidateScoreHint(scoreHint);
 
-        int similarity = SequenceMetrics.LcsSimilarity(first, second, scoreCutoff);
+        int commonLength = SequenceMetrics.TrimCommonAffixes(ref first, ref second);
+
+        if (first.IsEmpty || second.IsEmpty)
+        {
+            return commonLength >= scoreCutoff ? commonLength : 0;
+        }
+
+        int remainingCutoff = Math.Max(0, scoreCutoff - commonLength);
+        ReadOnlySpan<T> pattern = first.Length <= second.Length ? first : second;
+        ReadOnlySpan<T> text = first.Length <= second.Length ? second : first;
+        int similarity = commonLength + PooledGenericPatternMetrics.LcsSimilarity(pattern, text, remainingCutoff);
         return similarity >= scoreCutoff ? similarity : 0;
     }
 
@@ -426,8 +436,7 @@ public static class LcsSeq
         }
         else
         {
-            BlockPatternMatchVector vector = new(columns);
-            similarity = commonLength + vector.LcsSimilarityBlockwise(rows, adjustedCutoff);
+            similarity = commonLength + PooledAsciiPatternMetrics.LcsSimilarity(columns, rows, adjustedCutoff);
         }
 
         return similarity >= scoreCutoff ? similarity : 0;

@@ -1,0 +1,31 @@
+name: benchmarks
+
+on:
+  schedule:
+    - cron: "43 5 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: [net8.0, net10.0]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - run: dotnet restore RapidFuzzDotNet.slnx
+      - run: dotnet build benchmarks/RapidFuzzDotNet.Benchmarks/RapidFuzzDotNet.Benchmarks.csproj -c Release -f ${{ matrix.framework }} --no-restore
+      - run: dotnet run --project benchmarks/RapidFuzzDotNet.Benchmarks/RapidFuzzDotNet.Benchmarks.csproj -c Release -f ${{ matrix.framework }} --no-build -- --filter "*ManagedParityBenchmarks*" "*PartialRatioOptimizationBenchmarks*" "*JaroSimdBenchmarks*" --artifacts artifacts/benchmarks/${{ matrix.framework }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RapidFuzzDotNet-benchmarks-${{ matrix.framework }}
+          path: artifacts/benchmarks/${{ matrix.framework }}

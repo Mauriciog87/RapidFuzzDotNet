@@ -2,7 +2,7 @@ using RapidFuzz.Internal;
 
 namespace RapidFuzz.Distance;
 
-public static class Postfix
+public static partial class Postfix
 {
     public static int Distance(string first, string second, int scoreCutoff = int.MaxValue)
     {

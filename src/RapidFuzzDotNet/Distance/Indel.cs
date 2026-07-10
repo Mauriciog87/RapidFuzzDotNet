@@ -1,6 +1,6 @@
 namespace RapidFuzz.Distance;
 
-public static class Indel
+public static partial class Indel
 {
     public static int Distance(string first, string second, int scoreCutoff = int.MaxValue)
     {

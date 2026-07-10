@@ -2,7 +2,7 @@ using RapidFuzz.Internal;
 
 namespace RapidFuzz.Distance;
 
-public static class Osa
+public static partial class Osa
 {
     public static int Distance(string first, string second, int scoreCutoff = int.MaxValue)
     {
@@ -55,17 +55,27 @@ public static class Osa
         DistanceHelpers.ValidateScoreCutoff(scoreCutoff);
         DistanceHelpers.ValidateScoreHint(scoreHint);
 
-        if (scoreHint < scoreCutoff)
+        if (first.SequenceEqual(second))
         {
-            int hintedDistance = SequenceMetrics.OsaDistance(first, second, scoreHint);
-
-            if (hintedDistance <= scoreHint)
-            {
-                return hintedDistance;
-            }
+            return 0;
         }
 
-        return SequenceMetrics.OsaDistance(first, second, scoreCutoff);
+        SequenceMetrics.TrimCommonAffixes(ref first, ref second);
+
+        if (first.IsEmpty)
+        {
+            return DistanceHelpers.ApplyDistanceCutoff(second.Length, scoreCutoff);
+        }
+
+        if (second.IsEmpty)
+        {
+            return DistanceHelpers.ApplyDistanceCutoff(first.Length, scoreCutoff);
+        }
+
+        ReadOnlySpan<T> pattern = first.Length <= second.Length ? first : second;
+        ReadOnlySpan<T> text = first.Length <= second.Length ? second : first;
+        GenericPatternMatchVector<T> vector = new(pattern);
+        return vector.OsaDistance(text, scoreCutoff);
     }
 
     private static int DistanceCore(ReadOnlySpan<char> first, ReadOnlySpan<char> second, int scoreCutoff)

@@ -56,8 +56,24 @@ jobs:
           dotnet-version: 8.0.x
       - run: dotnet run --project tools/RapidFuzzDotNet.UpstreamAudit/RapidFuzzDotNet.UpstreamAudit.csproj -c Release -f net8.0 -- --root . --upstream artifacts/upstream
 
+  benchmark-smoke:
+    strategy:
+      matrix:
+        framework: [net8.0, net10.0]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - run: dotnet restore RapidFuzzDotNet.slnx
+      - run: dotnet build benchmarks/RapidFuzzDotNet.Benchmarks/RapidFuzzDotNet.Benchmarks.csproj -c Release -f ${{ matrix.framework }} --no-restore
+      - run: dotnet run --project benchmarks/RapidFuzzDotNet.Benchmarks/RapidFuzzDotNet.Benchmarks.csproj -c Release -f ${{ matrix.framework }} --no-build -- --filter "*UpstreamBenchmarkParityBenchmarks*" "*TokenizationBenchmarkParityBenchmarks*" "*PartialRatioOptimizationBenchmarks*" "*JaroSimdBenchmarks*" --job Dry --warmupCount 1 --iterationCount 1 --artifacts artifacts/benchmark-smoke/${{ matrix.framework }}
+
   package:
-    needs: [format, test, audit]
+    needs: [format, test, audit, benchmark-smoke]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -71,7 +87,7 @@ jobs:
       - run: dotnet restore RapidFuzzDotNet.slnx
       - run: dotnet build RapidFuzzDotNet.slnx -c Release --no-restore
       - run: dotnet pack src/RapidFuzzDotNet/RapidFuzzDotNet.csproj -c Release --no-build -o artifacts/package
-      - run: dotnet run --project tools/RapidFuzzDotNet.PackageVerifier/RapidFuzzDotNet.PackageVerifier.csproj -c Release -f net8.0 --no-build -- --package-dir artifacts/package
+      - run: dotnet run --project tools/RapidFuzzDotNet.PackageVerifier/RapidFuzzDotNet.PackageVerifier.csproj -c Release -f net8.0 --no-build -- --package-dir artifacts/package --repository-commit ${{ github.sha }}
       - uses: actions/upload-artifact@v4
         with:
           name: RapidFuzzDotNet-packages

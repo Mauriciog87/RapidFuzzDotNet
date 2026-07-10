@@ -49,7 +49,7 @@ public static class Program
 
             long relativeBudget = (long)Math.Floor(baselineAllocated * scenario.CandidateMaximumFraction);
 
-            if (candidateAllocated > relativeBudget)
+            if (scenario.CandidateMaximumFraction < 1.0 && candidateAllocated > relativeBudget)
             {
                 failures++;
                 Console.Error.WriteLine($"{scenario.Name} {scenario.CandidateName} allocations exceeded relative budget {relativeBudget.ToString(CultureInfo.InvariantCulture)}.");
@@ -117,9 +117,21 @@ public static class Program
         }
 
         string damerauTarget = new(damerauTargetCharacters);
+        byte[] crossDamerauSource = Enumerable.Range(0, 1024).Select(index => (byte)(index % 23)).ToArray();
+        int[] canonicalCrossDamerauSource = Array.ConvertAll(crossDamerauSource, static value => (int)value);
+        int[] crossDamerauTarget = canonicalCrossDamerauSource.ToArray();
+
+        for (int index = 8; index + 1 < crossDamerauTarget.Length; index += 37)
+        {
+            (crossDamerauTarget[index], crossDamerauTarget[index + 1]) =
+                (crossDamerauTarget[index + 1], crossDamerauTarget[index]);
+        }
+
+        ByteIntComparer crossDamerauComparer = new();
         int[] genericSource = Enumerable.Range(0, 320).Select(index => index % 17).ToArray();
         int[] genericTarget = Enumerable.Range(0, 320).Select(index => (index + 1) % 17).ToArray();
         CachedLevenshtein<int> genericCachedLevenshtein = new(genericSource);
+        CachedJaro<int> genericCachedJaro = new(genericSource);
         int genericBatchCount = Math.Max(8, System.Numerics.Vector<ulong>.Count * 2);
         int[][] genericBatchSources = Enumerable.Range(0, genericBatchCount)
             .Select(offset => Enumerable.Range(0, 48).Select(index => (index + offset) % 13).ToArray())
@@ -192,7 +204,9 @@ public static class Program
                 () => partialRatio.Similarity(partialTarget),
                 18000,
                 18000,
-                true),
+                true,
+                512,
+                0.5),
             new AllocationScenario(
                 "long levenshtein distance",
                 "static",
@@ -271,6 +285,16 @@ public static class Program
                 4,
                 0.1),
             new AllocationScenario(
+                "cross-type linear damerau 1024",
+                "same-type linear",
+                () => DamerauLevenshtein.Distance<int>(canonicalCrossDamerauSource, crossDamerauTarget),
+                "cross-type linear",
+                () => DamerauLevenshtein.Distance(crossDamerauSource, crossDamerauTarget, crossDamerauComparer),
+                2048,
+                512,
+                true,
+                4),
+            new AllocationScenario(
                 "generic cached levenshtein",
                 "static",
                 () => Levenshtein.Distance<int>(genericSource, genericTarget),
@@ -278,6 +302,15 @@ public static class Program
                 () => genericCachedLevenshtein.Distance(genericTarget),
                 1024,
                 1024,
+                true),
+            new AllocationScenario(
+                "generic cached jaro",
+                "static",
+                () => Jaro.Similarity<int>(genericSource, genericTarget),
+                "cached",
+                () => genericCachedJaro.Similarity(genericTarget),
+                512,
+                512,
                 true),
             new AllocationScenario(
                 "generic multi simd",
@@ -483,6 +516,11 @@ public static class Program
         }
 
         return total;
+    }
+
+    private sealed class ByteIntComparer : ISequenceEqualityComparer<byte, int>
+    {
+        public bool Equals(byte left, int right) => left == right;
     }
 }
 

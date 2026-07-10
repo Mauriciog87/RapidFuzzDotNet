@@ -1508,3 +1508,122 @@ public class ManagedParityBenchmarks
     [Benchmark]
     public int GenericMultiConstruction() => new MultiLevenshtein<int>(sources).Count;
 }
+
+[MemoryDiagnoser]
+[JsonExporterAttribute.Full]
+public class PartialRatioOptimizationBenchmarks
+{
+    private string source = string.Empty;
+    private string target = string.Empty;
+    private int[] genericSource = [];
+    private int[] genericTarget = [];
+    private CachedPartialRatio cached = new(string.Empty);
+    private CachedPartialRatio<int> genericCached = new(ReadOnlySpan<int>.Empty);
+
+    [Params(64, 256)]
+    public int Length { get; set; }
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        source = string.Concat(Enumerable.Range(0, Length).Select(index => (char)('a' + (index % 17))));
+        target = "prefix" + source[..^1] + "suffix";
+        genericSource = Enumerable.Range(0, Length).Select(index => index % 17).ToArray();
+        genericTarget = [31, .. genericSource[..^1], 37];
+        cached = new CachedPartialRatio(source);
+        genericCached = new CachedPartialRatio<int>(genericSource);
+    }
+
+    [Benchmark(Baseline = true)]
+    public double StaticPartialRatio() => Fuzz.PartialRatio(source, target);
+
+    [Benchmark]
+    public double CachedPartialRatio() => cached.Similarity(target);
+
+    [Benchmark]
+    public double GenericStaticPartialRatio() => Fuzz.PartialRatio<int>(genericSource, genericTarget);
+
+    [Benchmark]
+    public double GenericCachedPartialRatio() => genericCached.Similarity(genericTarget);
+}
+
+[MemoryDiagnoser]
+[JsonExporterAttribute.Full]
+public class JaroSimdBenchmarks
+{
+    private int[][] sources = [];
+    private int[] target = [];
+    private double[] jaroBuffer = [];
+    private double[] jaroWinklerBuffer = [];
+    private MultiJaro<int> multiJaro = new(0);
+    private MultiJaroWinkler<int> multiJaroWinkler = new(0);
+
+    [Params(32, 64)]
+    public int Length { get; set; }
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        int batchCount = System.Numerics.Vector<ulong>.Count * 2;
+        sources = Enumerable.Range(0, batchCount)
+            .Select(offset => Enumerable.Range(0, Length).Select(index => (index + offset) % 19).ToArray())
+            .ToArray();
+        target = Enumerable.Range(0, Length).Select(index => (index * 5) % 19).ToArray();
+        jaroBuffer = new double[batchCount];
+        jaroWinklerBuffer = new double[batchCount];
+        multiJaro = new MultiJaro<int>(sources);
+        multiJaroWinkler = new MultiJaroWinkler<int>(sources);
+    }
+
+    [Benchmark(Baseline = true)]
+    public double GenericScalarBatch()
+    {
+        double total = 0.0;
+
+        for (int index = 0; index < sources.Length; index++)
+        {
+            total += Jaro.Similarity<int>(sources[index], target);
+        }
+
+        return total;
+    }
+
+    [Benchmark]
+    public double GenericMultiSimd()
+    {
+        multiJaro.Similarities(target, jaroBuffer);
+        return Sum(jaroBuffer);
+    }
+
+    [Benchmark]
+    public double GenericJaroWinklerScalarBatch()
+    {
+        double total = 0.0;
+
+        for (int index = 0; index < sources.Length; index++)
+        {
+            total += JaroWinkler.Similarity<int>(sources[index], target);
+        }
+
+        return total;
+    }
+
+    [Benchmark]
+    public double GenericJaroWinklerMultiSimd()
+    {
+        multiJaroWinkler.Similarities(target, jaroWinklerBuffer);
+        return Sum(jaroWinklerBuffer);
+    }
+
+    private static double Sum(ReadOnlySpan<double> values)
+    {
+        double total = 0.0;
+
+        for (int index = 0; index < values.Length; index++)
+        {
+            total += values[index];
+        }
+
+        return total;
+    }
+}

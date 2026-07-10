@@ -3,7 +3,7 @@ using RapidFuzz.Internal;
 
 namespace RapidFuzz.Distance;
 
-public static class Levenshtein
+public static partial class Levenshtein
 {
     private const int StackLimit = 256;
     private static readonly byte[][] MblevenMatrix =
@@ -136,6 +136,11 @@ public static class Levenshtein
         DistanceHelpers.ValidateScoreCutoff(scoreCutoff);
         DistanceHelpers.ValidateScoreHint(scoreHint);
 
+        if (weights == LevenshteinWeights.Default)
+        {
+            return GenericDistanceCore(first, second, scoreCutoff);
+        }
+
         int effectiveCutoff = Math.Min(scoreCutoff, SequenceMetrics.LevenshteinMaximum(first.Length, second.Length, weights));
         int currentHint = DistanceHelpers.InitialScoreHint(scoreHint, effectiveCutoff);
 
@@ -152,6 +157,39 @@ public static class Levenshtein
         }
 
         return SequenceMetrics.LevenshteinDistance(first, second, weights, scoreCutoff);
+    }
+
+    private static int GenericDistanceCore<T>(ReadOnlySpan<T> first, ReadOnlySpan<T> second, int scoreCutoff)
+        where T : notnull, IEquatable<T>
+    {
+        if (first.SequenceEqual(second))
+        {
+            return 0;
+        }
+
+        SequenceMetrics.TrimCommonAffixes(ref first, ref second);
+
+        if (first.IsEmpty)
+        {
+            return DistanceHelpers.ApplyDistanceCutoff(second.Length, scoreCutoff);
+        }
+
+        if (second.IsEmpty)
+        {
+            return DistanceHelpers.ApplyDistanceCutoff(first.Length, scoreCutoff);
+        }
+
+        int lengthDifference = Math.Abs(first.Length - second.Length);
+
+        if (lengthDifference > scoreCutoff)
+        {
+            return scoreCutoff == int.MaxValue ? lengthDifference : scoreCutoff + 1;
+        }
+
+        ReadOnlySpan<T> pattern = first.Length <= second.Length ? first : second;
+        ReadOnlySpan<T> text = first.Length <= second.Length ? second : first;
+        int distance = PooledGenericPatternMetrics.LevenshteinDistance(pattern, text);
+        return DistanceHelpers.ApplyDistanceCutoff(distance, scoreCutoff);
     }
 
     private static int DistanceCore(
@@ -205,7 +243,7 @@ public static class Levenshtein
 
             int bitParallelDistance = pattern.Length <= PatternMatchVector.MaximumPatternLength
                 ? PatternMatchVector.LevenshteinDistance(pattern, text)
-                : new BlockPatternMatchVector(pattern).LevenshteinDistance(text);
+                : PooledAsciiPatternMetrics.LevenshteinDistance(pattern, text);
 
             return DistanceHelpers.ApplyDistanceCutoff(bitParallelDistance, scoreCutoff);
         }

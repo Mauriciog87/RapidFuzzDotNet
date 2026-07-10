@@ -19,6 +19,10 @@ internal sealed class GenericJaroPattern<T>
 
     public ReadOnlySpan<T> Source => source;
 
+    public int Length => source.Length;
+
+    internal ulong GetMask(T value) => pattern.GetMask(value, 0);
+
     public double Similarity(ReadOnlySpan<T> target, double scoreCutoff)
     {
         if (scoreCutoff > 1.0)

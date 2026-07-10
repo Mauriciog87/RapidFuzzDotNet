@@ -222,40 +222,54 @@ internal sealed class BlockPatternMatchVector
             return 0;
         }
 
-        Span<ulong> state = BlockCount <= StackBlockLimit ? stackalloc ulong[BlockCount] : new ulong[BlockCount];
+        ulong[]? rented = null;
+        Span<ulong> state = BlockCount <= StackBlockLimit
+            ? stackalloc ulong[BlockCount]
+            : (rented = ArrayPool<ulong>.Shared.Rent(BlockCount)).AsSpan(0, BlockCount);
+        state.Clear();
 
-        for (int i = 0; i < text.Length; i++)
+        try
         {
-            char value = text[i];
-            ulong shiftCarry = 1UL;
-            ulong borrow = 0UL;
-
-            for (int block = 0; block < BlockCount; block++)
+            for (int i = 0; i < text.Length; i++)
             {
-                ulong stateBlock = state[block];
-                ulong matches = GetMask(value, block) | stateBlock;
-                ulong shifted = (stateBlock << 1) | shiftCarry;
-                shiftCarry = stateBlock >> (BlockSize - 1);
-                ulong difference = matches - shifted - borrow;
-                ulong nextBorrow = matches < shifted || (borrow != 0UL && matches == shifted) ? 1UL : 0UL;
-                state[block] = (matches & ~difference) & ValidMask(block);
-                borrow = nextBorrow;
-            }
+                char value = text[i];
+                ulong shiftCarry = 1UL;
+                ulong borrow = 0UL;
 
-            if (scoreCutoff > 0 && (i & 7) == 7)
-            {
-                int currentSimilarity = PopCount(state);
-                int remaining = text.Length - i - 1;
-
-                if (currentSimilarity + remaining < scoreCutoff)
+                for (int block = 0; block < BlockCount; block++)
                 {
-                    return 0;
+                    ulong stateBlock = state[block];
+                    ulong matches = GetMask(value, block) | stateBlock;
+                    ulong shifted = (stateBlock << 1) | shiftCarry;
+                    shiftCarry = stateBlock >> (BlockSize - 1);
+                    ulong difference = matches - shifted - borrow;
+                    ulong nextBorrow = matches < shifted || (borrow != 0UL && matches == shifted) ? 1UL : 0UL;
+                    state[block] = (matches & ~difference) & ValidMask(block);
+                    borrow = nextBorrow;
+                }
+
+                if (scoreCutoff > 0 && (i & 7) == 7)
+                {
+                    int currentSimilarity = PopCount(state);
+                    int remaining = text.Length - i - 1;
+
+                    if (currentSimilarity + remaining < scoreCutoff)
+                    {
+                        return 0;
+                    }
                 }
             }
-        }
 
-        int similarity = PopCount(state);
-        return similarity >= scoreCutoff ? similarity : 0;
+            int similarity = PopCount(state);
+            return similarity >= scoreCutoff ? similarity : 0;
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<ulong>.Shared.Return(rented, clearArray: true);
+            }
+        }
     }
 
     public int LevenshteinDistance(ReadOnlySpan<char> text)
@@ -270,64 +284,81 @@ internal sealed class BlockPatternMatchVector
             return Length;
         }
 
-        Span<ulong> positive = BlockCount <= StackBlockLimit ? stackalloc ulong[BlockCount] : new ulong[BlockCount];
-        Span<ulong> negative = BlockCount <= StackBlockLimit ? stackalloc ulong[BlockCount] : new ulong[BlockCount];
-        Span<ulong> horizontal = BlockCount <= StackBlockLimit ? stackalloc ulong[BlockCount] : new ulong[BlockCount];
-        Span<ulong> positiveHorizontal = BlockCount <= StackBlockLimit ? stackalloc ulong[BlockCount] : new ulong[BlockCount];
-        Span<ulong> negativeHorizontal = BlockCount <= StackBlockLimit ? stackalloc ulong[BlockCount] : new ulong[BlockCount];
-        positive.Fill(ulong.MaxValue);
-        positive[^1] &= lastBlockMask;
-        int highBlock = (Length - 1) / BlockSize;
-        ulong highBit = 1UL << ((Length - 1) & (BlockSize - 1));
-        int score = Length;
+        int storageLength = checked(BlockCount * 5);
+        ulong[]? rented = null;
+        Span<ulong> storage = BlockCount <= StackBlockLimit
+            ? stackalloc ulong[storageLength]
+            : (rented = ArrayPool<ulong>.Shared.Rent(storageLength)).AsSpan(0, storageLength);
+        storage.Clear();
 
-        for (int i = 0; i < text.Length; i++)
+        try
         {
-            char value = text[i];
-            ulong carry = 0UL;
+            Span<ulong> positive = storage[..BlockCount];
+            Span<ulong> negative = storage.Slice(BlockCount, BlockCount);
+            Span<ulong> horizontal = storage.Slice(BlockCount * 2, BlockCount);
+            Span<ulong> positiveHorizontal = storage.Slice(BlockCount * 3, BlockCount);
+            Span<ulong> negativeHorizontal = storage.Slice(BlockCount * 4, BlockCount);
+            positive.Fill(ulong.MaxValue);
+            positive[^1] &= lastBlockMask;
+            int highBlock = (Length - 1) / BlockSize;
+            ulong highBit = 1UL << ((Length - 1) & (BlockSize - 1));
+            int score = Length;
 
-            for (int block = 0; block < BlockCount; block++)
+            for (int i = 0; i < text.Length; i++)
             {
-                ulong equal = GetMask(value, block);
-                ulong addend = equal & positive[block];
-                ulong sum = addend + positive[block] + carry;
-                ulong nextCarry = sum < addend || (carry != 0UL && sum == addend) ? 1UL : 0UL;
-                horizontal[block] = ((sum ^ positive[block]) | equal) & ValidMask(block);
-                carry = nextCarry;
+                char value = text[i];
+                ulong carry = 0UL;
+
+                for (int block = 0; block < BlockCount; block++)
+                {
+                    ulong equal = GetMask(value, block);
+                    ulong addend = equal & positive[block];
+                    ulong sum = addend + positive[block] + carry;
+                    ulong nextCarry = sum < addend || (carry != 0UL && sum == addend) ? 1UL : 0UL;
+                    horizontal[block] = ((sum ^ positive[block]) | equal) & ValidMask(block);
+                    carry = nextCarry;
+                }
+
+                for (int block = 0; block < BlockCount; block++)
+                {
+                    ulong validMask = ValidMask(block);
+                    ulong equal = GetMask(value, block);
+                    ulong vertical = (equal | negative[block]) & validMask;
+                    positiveHorizontal[block] = (negative[block] | ~(horizontal[block] | positive[block])) & validMask;
+                    negativeHorizontal[block] = (positive[block] & horizontal[block]) & validMask;
+                }
+
+                if ((positiveHorizontal[highBlock] & highBit) != 0UL)
+                {
+                    score++;
+                }
+                else if ((negativeHorizontal[highBlock] & highBit) != 0UL)
+                {
+                    score--;
+                }
+
+                ShiftLeftOne(positiveHorizontal, 1UL);
+                ShiftLeftOne(negativeHorizontal, 0UL);
+
+                for (int block = 0; block < BlockCount; block++)
+                {
+                    ulong validMask = ValidMask(block);
+                    ulong equal = GetMask(value, block);
+                    ulong vertical = (equal | negative[block]) & validMask;
+                    positive[block] = (negativeHorizontal[block] | ~(vertical | positiveHorizontal[block])) & validMask;
+                    negative[block] = positiveHorizontal[block] & vertical;
+                }
             }
 
-            for (int block = 0; block < BlockCount; block++)
+            return score;
+        }
+        finally
+        {
+            if (rented is not null)
             {
-                ulong validMask = ValidMask(block);
-                ulong equal = GetMask(value, block);
-                ulong vertical = (equal | negative[block]) & validMask;
-                positiveHorizontal[block] = (negative[block] | ~(horizontal[block] | positive[block])) & validMask;
-                negativeHorizontal[block] = (positive[block] & horizontal[block]) & validMask;
-            }
-
-            if ((positiveHorizontal[highBlock] & highBit) != 0UL)
-            {
-                score++;
-            }
-            else if ((negativeHorizontal[highBlock] & highBit) != 0UL)
-            {
-                score--;
-            }
-
-            ShiftLeftOne(positiveHorizontal, 1UL);
-            ShiftLeftOne(negativeHorizontal, 0UL);
-
-            for (int block = 0; block < BlockCount; block++)
-            {
-                ulong validMask = ValidMask(block);
-                ulong equal = GetMask(value, block);
-                ulong vertical = (equal | negative[block]) & validMask;
-                positive[block] = (negativeHorizontal[block] | ~(vertical | positiveHorizontal[block])) & validMask;
-                negative[block] = positiveHorizontal[block] & vertical;
+                ArrayPool<ulong>.Shared.Return(rented, clearArray: true);
             }
         }
-
-        return score;
     }
 
     internal ulong GetMask(char value, int block)
@@ -375,31 +406,44 @@ internal sealed class GenericPatternMatchVector<T>
 {
     private const int BlockSize = 64;
     private const int StackBlockLimit = 32;
-    private readonly Dictionary<T, int> symbolIndexes;
+    private readonly int[] buckets;
+    private readonly T[] keys;
     private readonly ulong[] masks;
     private readonly ulong lastBlockMask;
+    private readonly EqualityComparer<T> comparer;
 
     public GenericPatternMatchVector(ReadOnlySpan<T> pattern)
     {
         Length = pattern.Length;
         BlockCount = (pattern.Length + BlockSize - 1) / BlockSize;
-        symbolIndexes = [];
+        comparer = EqualityComparer<T>.Default;
+        buckets = new int[GetBucketLength(pattern.Length)];
+        keys = new T[pattern.Length];
+        int symbolCount = 0;
 
         for (int index = 0; index < pattern.Length; index++)
         {
-            if (!symbolIndexes.ContainsKey(pattern[index]))
+            int bucket = GetBucket(pattern[index]);
+
+            while (buckets[bucket] != 0 && !comparer.Equals(keys[buckets[bucket] - 1], pattern[index]))
             {
-                symbolIndexes[pattern[index]] = symbolIndexes.Count;
+                bucket = (bucket + 1) & (buckets.Length - 1);
+            }
+
+            if (buckets[bucket] == 0)
+            {
+                keys[symbolCount] = pattern[index];
+                buckets[bucket] = ++symbolCount;
             }
         }
 
-        masks = new ulong[symbolIndexes.Count * BlockCount];
+        masks = new ulong[symbolCount * BlockCount];
         int lastBlockBits = pattern.Length & (BlockSize - 1);
         lastBlockMask = lastBlockBits == 0 ? ulong.MaxValue : (1UL << lastBlockBits) - 1UL;
 
         for (int index = 0; index < pattern.Length; index++)
         {
-            int symbolIndex = symbolIndexes[pattern[index]];
+            int symbolIndex = FindSymbolIndex(pattern[index]);
             int block = index / BlockSize;
             masks[(symbolIndex * BlockCount) + block] |= 1UL << (index & (BlockSize - 1));
         }
@@ -411,9 +455,45 @@ internal sealed class GenericPatternMatchVector<T>
 
     public ulong GetMask(T value, int block)
     {
-        return symbolIndexes.TryGetValue(value, out int symbolIndex)
-            ? masks[(symbolIndex * BlockCount) + block]
-            : 0UL;
+        int symbolIndex = FindSymbolIndex(value);
+        return symbolIndex >= 0 ? masks[(symbolIndex * BlockCount) + block] : 0UL;
+    }
+
+    private int FindSymbolIndex(T value)
+    {
+        int bucket = GetBucket(value);
+
+        while (buckets[bucket] != 0)
+        {
+            int symbolIndex = buckets[bucket] - 1;
+
+            if (comparer.Equals(keys[symbolIndex], value))
+            {
+                return symbolIndex;
+            }
+
+            bucket = (bucket + 1) & (buckets.Length - 1);
+        }
+
+        return -1;
+    }
+
+    private int GetBucket(T value)
+    {
+        return comparer.GetHashCode(value) & (buckets.Length - 1);
+    }
+
+    private static int GetBucketLength(int patternLength)
+    {
+        int minimum = Math.Max(2, checked(patternLength * 2));
+        int length = 2;
+
+        while (length < minimum)
+        {
+            length = checked(length * 2);
+        }
+
+        return length;
     }
 
     public int LcsSimilarity(ReadOnlySpan<T> text, int scoreCutoff)

@@ -3,7 +3,7 @@ using RapidFuzz.Internal;
 
 namespace RapidFuzz;
 
-public static class Fuzz
+public static partial class Fuzz
 {
     public static double Ratio(string first, string second, double scoreCutoff = 0.0, Func<string, string>? processor = null)
     {
@@ -42,7 +42,8 @@ public static class Fuzz
         ArgumentNullException.ThrowIfNull(second);
 
         (string First, string Second) prepared = Prepare(first, second, processor);
-        return PartialRatio(prepared.First.AsSpan(), prepared.Second.AsSpan(), scoreCutoff);
+        CachedPartialRatio cached = new(prepared.First);
+        return cached.Similarity(prepared.Second, scoreCutoff);
     }
 
     public static double PartialRatio(string first, string second, double scoreCutoff)
@@ -71,55 +72,15 @@ public static class Fuzz
         ArgumentNullException.ThrowIfNull(second);
 
         (string First, string Second) prepared = Prepare(first, second, processor);
-        return PartialRatioAlignment(prepared.First.AsSpan(), prepared.Second.AsSpan(), scoreCutoff);
+        CachedPartialRatio cached = new(prepared.First);
+        return cached.Alignment(prepared.Second, scoreCutoff);
     }
 
     public static ScoreAlignment PartialRatioAlignment(ReadOnlySpan<char> first, ReadOnlySpan<char> second, double scoreCutoff = 0.0)
     {
         ValidateScoreCutoff(scoreCutoff);
-
-        if (first.Length > second.Length)
-        {
-            ScoreAlignment result = PartialRatioAlignment(second, first, scoreCutoff);
-            return new ScoreAlignment(
-                result.Score,
-                result.DestinationStart,
-                result.DestinationEnd,
-                result.SourceStart,
-                result.SourceEnd);
-        }
-
-        if (scoreCutoff > 100.0)
-        {
-            return new ScoreAlignment(0.0, 0, first.Length, 0, first.Length);
-        }
-
-        if (first.IsEmpty || second.IsEmpty)
-        {
-            double emptyScore = first.IsEmpty && second.IsEmpty ? 100.0 : 0.0;
-            double cutoffScore = emptyScore >= scoreCutoff ? emptyScore : 0.0;
-            return new ScoreAlignment(cutoffScore, 0, first.Length, 0, first.Length);
-        }
-
-        ScoreAlignment alignment = PartialRatioAlignmentWithShorterSource(first, second, scoreCutoff);
-
-        if (alignment.Score != 100.0 && first.Length == second.Length)
-        {
-            double nextCutoff = Math.Max(scoreCutoff, alignment.Score);
-            ScoreAlignment reversed = PartialRatioAlignmentWithShorterSource(second, first, nextCutoff);
-
-            if (reversed.Score > alignment.Score)
-            {
-                return new ScoreAlignment(
-                    reversed.Score,
-                    reversed.DestinationStart,
-                    reversed.DestinationEnd,
-                    reversed.SourceStart,
-                    reversed.SourceEnd);
-            }
-        }
-
-        return alignment;
+        CachedPartialRatio<char> cached = new(first);
+        return cached.Alignment(second, scoreCutoff);
     }
 
     public static ScoreAlignment PartialRatioAlignment<T>(
@@ -129,49 +90,8 @@ public static class Fuzz
         where T : notnull, IEquatable<T>
     {
         ValidateScoreCutoff(scoreCutoff);
-
-        if (first.Length > second.Length)
-        {
-            ScoreAlignment result = PartialRatioAlignment(second, first, scoreCutoff);
-            return new ScoreAlignment(
-                result.Score,
-                result.DestinationStart,
-                result.DestinationEnd,
-                result.SourceStart,
-                result.SourceEnd);
-        }
-
-        if (scoreCutoff > 100.0)
-        {
-            return new ScoreAlignment(0.0, 0, first.Length, 0, first.Length);
-        }
-
-        if (first.IsEmpty || second.IsEmpty)
-        {
-            double emptyScore = first.IsEmpty && second.IsEmpty ? 100.0 : 0.0;
-            double cutoffScore = emptyScore >= scoreCutoff ? emptyScore : 0.0;
-            return new ScoreAlignment(cutoffScore, 0, first.Length, 0, first.Length);
-        }
-
-        ScoreAlignment alignment = PartialRatioAlignmentWithShorterSource(first, second, scoreCutoff);
-
-        if (alignment.Score != 100.0 && first.Length == second.Length)
-        {
-            double nextCutoff = Math.Max(scoreCutoff, alignment.Score);
-            ScoreAlignment reversed = PartialRatioAlignmentWithShorterSource(second, first, nextCutoff);
-
-            if (reversed.Score > alignment.Score)
-            {
-                return new ScoreAlignment(
-                    reversed.Score,
-                    reversed.DestinationStart,
-                    reversed.DestinationEnd,
-                    reversed.SourceStart,
-                    reversed.SourceEnd);
-            }
-        }
-
-        return alignment;
+        CachedPartialRatio<T> cached = new(first);
+        return cached.Alignment(second, scoreCutoff);
     }
 
     public static double TokenSortRatio(string first, string second, double scoreCutoff = 0.0, Func<string, string>? processor = null)
@@ -451,276 +371,6 @@ public static class Fuzz
         }
 
         return score >= scoreCutoff ? score : 0.0;
-    }
-
-    private static ScoreAlignment PartialRatioAlignmentWithShorterSource(
-        ReadOnlySpan<char> first,
-        ReadOnlySpan<char> second,
-        double scoreCutoff)
-    {
-        double bestScore = 0.0;
-        int bestDestinationStart = 0;
-        int bestDestinationEnd = first.Length;
-        CharacterSet firstCharacters = CreateCharacterSet(first);
-
-        if (second.Length > first.Length)
-        {
-            HashSet<int> matchedStarts = ScoreMatchingBlockCandidates(
-                first,
-                second,
-                scoreCutoff,
-                ref bestScore,
-                ref bestDestinationStart,
-                ref bestDestinationEnd);
-
-            if (bestScore >= 100.0)
-            {
-                return new ScoreAlignment(100.0, 0, first.Length, bestDestinationStart, bestDestinationEnd);
-            }
-
-            for (int i = 0; i <= second.Length - first.Length; i++)
-            {
-                if (matchedStarts.Contains(i))
-                {
-                    continue;
-                }
-
-                if (ScoreEqualLengthCandidate(
-                    first,
-                    second,
-                    i,
-                    scoreCutoff,
-                    ref bestScore,
-                    ref bestDestinationStart,
-                    ref bestDestinationEnd))
-                {
-                    return new ScoreAlignment(100.0, 0, first.Length, bestDestinationStart, bestDestinationEnd);
-                }
-            }
-        }
-
-        for (int length = 1; length < first.Length; length++)
-        {
-            ReadOnlySpan<char> candidate = second[..length];
-
-            if (!firstCharacters.Contains(candidate[^1]))
-            {
-                continue;
-            }
-
-            double score = Ratio(first, candidate, Math.Max(scoreCutoff, bestScore));
-
-            if (score > bestScore)
-            {
-                bestScore = score;
-                bestDestinationStart = 0;
-                bestDestinationEnd = length;
-
-                if (bestScore >= 100.0)
-                {
-                    return new ScoreAlignment(100.0, 0, first.Length, bestDestinationStart, bestDestinationEnd);
-                }
-            }
-        }
-
-        for (int start = second.Length - first.Length; start < second.Length; start++)
-        {
-            ReadOnlySpan<char> candidate = second[start..];
-
-            if (!firstCharacters.Contains(candidate[0]))
-            {
-                continue;
-            }
-
-            double score = Ratio(first, candidate, Math.Max(scoreCutoff, bestScore));
-
-            if (score > bestScore)
-            {
-                bestScore = score;
-                bestDestinationStart = start;
-                bestDestinationEnd = second.Length;
-
-                if (bestScore >= 100.0)
-                {
-                    return new ScoreAlignment(100.0, 0, first.Length, bestDestinationStart, bestDestinationEnd);
-                }
-            }
-        }
-
-        double cutoffScore = bestScore >= scoreCutoff ? bestScore : 0.0;
-        return new ScoreAlignment(cutoffScore, 0, first.Length, bestDestinationStart, bestDestinationEnd);
-    }
-
-    private static ScoreAlignment PartialRatioAlignmentWithShorterSource<T>(
-        ReadOnlySpan<T> first,
-        ReadOnlySpan<T> second,
-        double scoreCutoff)
-        where T : notnull, IEquatable<T>
-    {
-        double bestScore = 0.0;
-        int bestDestinationStart = 0;
-        int bestDestinationEnd = first.Length;
-
-        for (int start = 0; start <= second.Length - first.Length; start++)
-        {
-            if (ScoreEqualLengthCandidate(
-                first,
-                second,
-                start,
-                scoreCutoff,
-                ref bestScore,
-                ref bestDestinationStart,
-                ref bestDestinationEnd))
-            {
-                return new ScoreAlignment(100.0, 0, first.Length, bestDestinationStart, bestDestinationEnd);
-            }
-        }
-
-        for (int length = 1; length < first.Length; length++)
-        {
-            double score = Ratio(first, second[..length], Math.Max(scoreCutoff, bestScore));
-
-            if (score > bestScore)
-            {
-                bestScore = score;
-                bestDestinationStart = 0;
-                bestDestinationEnd = length;
-
-                if (bestScore >= 100.0)
-                {
-                    return new ScoreAlignment(100.0, 0, first.Length, bestDestinationStart, bestDestinationEnd);
-                }
-            }
-        }
-
-        for (int start = second.Length - first.Length; start < second.Length; start++)
-        {
-            double score = Ratio(first, second[start..], Math.Max(scoreCutoff, bestScore));
-
-            if (score > bestScore)
-            {
-                bestScore = score;
-                bestDestinationStart = start;
-                bestDestinationEnd = second.Length;
-
-                if (bestScore >= 100.0)
-                {
-                    return new ScoreAlignment(100.0, 0, first.Length, bestDestinationStart, bestDestinationEnd);
-                }
-            }
-        }
-
-        double cutoffScore = bestScore >= scoreCutoff ? bestScore : 0.0;
-        return new ScoreAlignment(cutoffScore, 0, first.Length, bestDestinationStart, bestDestinationEnd);
-    }
-
-    private static HashSet<int> ScoreMatchingBlockCandidates(
-        ReadOnlySpan<char> first,
-        ReadOnlySpan<char> second,
-        double scoreCutoff,
-        ref double bestScore,
-        ref int bestDestinationStart,
-        ref int bestDestinationEnd)
-    {
-        HashSet<int> starts = [];
-        MatchingBlock[] matchingBlocks = Indel.Opcodes(first, second).GetMatchingBlocks();
-        int maximumStart = second.Length - first.Length;
-
-        for (int i = 0; i < matchingBlocks.Length; i++)
-        {
-            MatchingBlock block = matchingBlocks[i];
-
-            if (block.Length == 0)
-            {
-                continue;
-            }
-
-            int alignedStart = Math.Clamp(block.DestinationPosition - block.SourcePosition, 0, maximumStart);
-            int trailingStart = Math.Clamp(block.DestinationPosition + block.Length - first.Length, 0, maximumStart);
-
-            if (starts.Add(alignedStart)
-                && ScoreEqualLengthCandidate(
-                    first,
-                    second,
-                    alignedStart,
-                    scoreCutoff,
-                    ref bestScore,
-                    ref bestDestinationStart,
-                    ref bestDestinationEnd))
-            {
-                break;
-            }
-
-            if (starts.Add(trailingStart)
-                && ScoreEqualLengthCandidate(
-                    first,
-                    second,
-                    trailingStart,
-                    scoreCutoff,
-                    ref bestScore,
-                    ref bestDestinationStart,
-                    ref bestDestinationEnd))
-            {
-                break;
-            }
-        }
-
-        return starts;
-    }
-
-    private static bool ScoreEqualLengthCandidate(
-        ReadOnlySpan<char> first,
-        ReadOnlySpan<char> second,
-        int destinationStart,
-        double scoreCutoff,
-        ref double bestScore,
-        ref int bestDestinationStart,
-        ref int bestDestinationEnd)
-    {
-        double score = Ratio(first, second.Slice(destinationStart, first.Length), Math.Max(scoreCutoff, bestScore));
-
-        if (score > bestScore)
-        {
-            bestScore = score;
-            bestDestinationStart = destinationStart;
-            bestDestinationEnd = destinationStart + first.Length;
-        }
-
-        return bestScore >= 100.0;
-    }
-
-    private static bool ScoreEqualLengthCandidate<T>(
-        ReadOnlySpan<T> first,
-        ReadOnlySpan<T> second,
-        int destinationStart,
-        double scoreCutoff,
-        ref double bestScore,
-        ref int bestDestinationStart,
-        ref int bestDestinationEnd)
-        where T : notnull, IEquatable<T>
-    {
-        double score = Ratio(first, second.Slice(destinationStart, first.Length), Math.Max(scoreCutoff, bestScore));
-
-        if (score > bestScore)
-        {
-            bestScore = score;
-            bestDestinationStart = destinationStart;
-            bestDestinationEnd = destinationStart + first.Length;
-        }
-
-        return bestScore >= 100.0;
-    }
-
-    private static CharacterSet CreateCharacterSet(ReadOnlySpan<char> value)
-    {
-        CharacterSet characters = new();
-
-        for (int i = 0; i < value.Length; i++)
-        {
-            characters.Add(value[i]);
-        }
-
-        return characters;
     }
 
     private static (string First, string Second) Prepare(string first, string second, Func<string, string>? processor)

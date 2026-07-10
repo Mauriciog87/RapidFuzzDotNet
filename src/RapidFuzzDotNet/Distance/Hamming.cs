@@ -2,7 +2,7 @@ using RapidFuzz.Internal;
 
 namespace RapidFuzz.Distance;
 
-public static class Hamming
+public static partial class Hamming
 {
     public static int Distance(string first, string second, bool pad = true, int scoreCutoff = int.MaxValue)
     {

@@ -6,12 +6,14 @@ namespace RapidFuzz;
 public sealed class CachedRatio
 {
     private readonly CachedIndel indel;
+    private readonly int sourceLength;
 
     public CachedRatio(string source)
     {
         ArgumentNullException.ThrowIfNull(source);
 
         indel = new CachedIndel(source);
+        sourceLength = source.Length;
     }
 
     public double Similarity(string target, double scoreCutoff = 0.0, double scoreHint = 0.0)
@@ -28,42 +30,78 @@ public sealed class CachedRatio
         double score = indel.NormalizedSimilarity(target) * 100.0;
         return score >= scoreCutoff ? score : 0.0;
     }
+
+    internal int Distance(ReadOnlySpan<char> target)
+    {
+        return indel.Distance(target, int.MaxValue, int.MaxValue);
+    }
+
+    public double Similarity(ReadOnlySpan<char> target, double scoreCutoff = 0.0, double scoreHint = 0.0)
+    {
+        Fuzz.ValidateScoreCutoff(scoreCutoff);
+        Fuzz.ValidateScoreCutoff(scoreHint);
+        int maximum = sourceLength + target.Length;
+        double score = maximum == 0 ? 100.0 : (1.0 - (double)Distance(target) / maximum) * 100.0;
+        return score >= scoreCutoff ? score : 0.0;
+    }
 }
 
 public sealed class CachedPartialRatio
 {
     private readonly string source;
+    private readonly CachedRatio ratio;
+    private readonly HashSet<char> sourceSymbols;
 
     public CachedPartialRatio(string source)
     {
         ArgumentNullException.ThrowIfNull(source);
 
         this.source = source;
+        ratio = new CachedRatio(source);
+        sourceSymbols = new HashSet<char>(source);
     }
 
     public double Similarity(string target, double scoreCutoff = 0.0, double scoreHint = 0.0)
     {
         ArgumentNullException.ThrowIfNull(target);
 
-        return Fuzz.PartialRatio(source, target, scoreCutoff);
+        return Alignment(target, scoreCutoff, scoreHint).Score;
     }
 
     public ScoreAlignment Alignment(string target, double scoreCutoff = 0.0, double scoreHint = 0.0)
     {
         ArgumentNullException.ThrowIfNull(target);
 
-        return Fuzz.PartialRatioAlignment(source, target, scoreCutoff);
+        Fuzz.ValidateScoreCutoff(scoreCutoff);
+        Fuzz.ValidateScoreCutoff(scoreHint);
+        CachedStringRatioAdapter adapter = new(ratio);
+        return CachedPartialRatioCore.Alignment(source.AsSpan(), target.AsSpan(), adapter, sourceSymbols, scoreCutoff);
+    }
+
+    public double Similarity(ReadOnlySpan<char> target, double scoreCutoff = 0.0, double scoreHint = 0.0)
+    {
+        return Alignment(target, scoreCutoff, scoreHint).Score;
+    }
+
+    public ScoreAlignment Alignment(ReadOnlySpan<char> target, double scoreCutoff = 0.0, double scoreHint = 0.0)
+    {
+        Fuzz.ValidateScoreCutoff(scoreCutoff);
+        Fuzz.ValidateScoreCutoff(scoreHint);
+        CachedStringRatioAdapter adapter = new(ratio);
+        return CachedPartialRatioCore.Alignment(source.AsSpan(), target, adapter, sourceSymbols, scoreCutoff);
     }
 }
 
-public sealed class CachedRatio<T>
+public sealed partial class CachedRatio<T>
     where T : notnull, IEquatable<T>
 {
     private readonly T[] source;
+    private readonly CachedIndel<T> indel;
 
     public CachedRatio(ReadOnlySpan<T> source)
     {
         this.source = source.ToArray();
+        indel = new CachedIndel<T>(this.source);
     }
 
     public double Similarity(ReadOnlySpan<T> target, double scoreCutoff = 0.0, double scoreHint = 0.0)
@@ -71,18 +109,28 @@ public sealed class CachedRatio<T>
         Fuzz.ValidateScoreCutoff(scoreCutoff);
         Fuzz.ValidateScoreCutoff(scoreHint);
 
-        return Fuzz.Ratio<T>(source, target, scoreCutoff);
+        double score = indel.NormalizedSimilarity(target) * 100.0;
+        return score >= scoreCutoff ? score : 0.0;
+    }
+
+    internal int Distance(ReadOnlySpan<T> target)
+    {
+        return indel.Distance(target);
     }
 }
 
-public sealed class CachedPartialRatio<T>
+public sealed partial class CachedPartialRatio<T>
     where T : notnull, IEquatable<T>
 {
     private readonly T[] source;
+    private readonly CachedRatio<T> ratio;
+    private readonly HashSet<T> sourceSymbols;
 
     public CachedPartialRatio(ReadOnlySpan<T> source)
     {
         this.source = source.ToArray();
+        ratio = new CachedRatio<T>(this.source);
+        sourceSymbols = new HashSet<T>(this.source);
     }
 
     public double Similarity(ReadOnlySpan<T> target, double scoreCutoff = 0.0, double scoreHint = 0.0)
@@ -90,7 +138,7 @@ public sealed class CachedPartialRatio<T>
         Fuzz.ValidateScoreCutoff(scoreCutoff);
         Fuzz.ValidateScoreCutoff(scoreHint);
 
-        return Fuzz.PartialRatio<T>(source, target, scoreCutoff);
+        return Alignment(target, scoreCutoff, scoreHint).Score;
     }
 
     public ScoreAlignment Alignment(ReadOnlySpan<T> target, double scoreCutoff = 0.0, double scoreHint = 0.0)
@@ -98,7 +146,8 @@ public sealed class CachedPartialRatio<T>
         Fuzz.ValidateScoreCutoff(scoreCutoff);
         Fuzz.ValidateScoreCutoff(scoreHint);
 
-        return Fuzz.PartialRatioAlignment<T>(source, target, scoreCutoff);
+        CachedGenericRatioAdapter<T> adapter = new(ratio);
+        return CachedPartialRatioCore.Alignment(source, target, adapter, sourceSymbols, scoreCutoff);
     }
 }
 
@@ -142,32 +191,38 @@ public sealed class CachedTokenSortRatio
 
 public sealed class CachedPartialTokenSortRatio
 {
-    private readonly TokenizedString sourceTokens;
+    private readonly CachedPartialRatio ratio;
 
     public CachedPartialTokenSortRatio(string source)
     {
         ArgumentNullException.ThrowIfNull(source);
 
-        sourceTokens = StringHelpers.CreateTokenizedString(source);
+        TokenizedString sourceTokens = StringHelpers.CreateTokenizedString(source);
+        ratio = new CachedPartialRatio(sourceTokens.Sorted);
     }
 
     public CachedPartialTokenSortRatio(ReadOnlySpan<char> source)
     {
-        sourceTokens = StringHelpers.CreateTokenizedString(source);
+        TokenizedString sourceTokens = StringHelpers.CreateTokenizedString(source);
+        ratio = new CachedPartialRatio(sourceTokens.Sorted);
     }
 
     public double Similarity(string target, double scoreCutoff = 0.0, double scoreHint = 0.0)
     {
         ArgumentNullException.ThrowIfNull(target);
+        Fuzz.ValidateScoreCutoff(scoreCutoff);
+        Fuzz.ValidateScoreCutoff(scoreHint);
 
         TokenizedString targetTokens = StringHelpers.CreateTokenizedString(target);
-        return Fuzz.PartialTokenSortRatio(sourceTokens, targetTokens, scoreCutoff);
+        return ratio.Similarity(targetTokens.Sorted, scoreCutoff, scoreHint);
     }
 
     public double Similarity(ReadOnlySpan<char> target, double scoreCutoff = 0.0, double scoreHint = 0.0)
     {
+        Fuzz.ValidateScoreCutoff(scoreCutoff);
+        Fuzz.ValidateScoreCutoff(scoreHint);
         TokenizedString targetTokens = StringHelpers.CreateTokenizedString(target);
-        return Fuzz.PartialTokenSortRatio(sourceTokens, targetTokens, scoreCutoff);
+        return ratio.Similarity(targetTokens.Sorted, scoreCutoff, scoreHint);
     }
 }
 
@@ -349,7 +404,7 @@ public sealed class CachedQRatio
     }
 
     public CachedQRatio(ReadOnlySpan<char> source)
-        : this(source.ToString())
+        : this(new string(source))
     {
     }
 
@@ -376,11 +431,11 @@ public sealed class CachedQRatio
             return 0.0;
         }
 
-        return Fuzz.Ratio(source.AsSpan(), target, scoreCutoff);
+        return ratio.Similarity(target, scoreCutoff, scoreHint);
     }
 }
 
-public sealed class CachedQRatio<T>
+public sealed partial class CachedQRatio<T>
     where T : notnull, IEquatable<T>
 {
     private readonly T[] source;
@@ -427,7 +482,7 @@ public sealed class CachedWRatio
     }
 
     public CachedWRatio(ReadOnlySpan<char> source)
-        : this(source.ToString())
+        : this(new string(source))
     {
     }
 
@@ -465,6 +520,32 @@ public sealed class CachedWRatio
 
     public double Similarity(ReadOnlySpan<char> target, double scoreCutoff = 0.0, double scoreHint = 0.0)
     {
-        return Similarity(target.ToString(), scoreCutoff, scoreHint);
+        Fuzz.ValidateScoreCutoff(scoreCutoff);
+        Fuzz.ValidateScoreCutoff(scoreHint);
+
+        if (source.Length == 0 || target.IsEmpty)
+        {
+            return 0.0;
+        }
+
+        double baseScore = ratio.Similarity(target, scoreCutoff);
+        double lengthRatio = (double)Math.Max(source.Length, target.Length) / Math.Min(source.Length, target.Length);
+        double score;
+
+        if (lengthRatio < 1.5)
+        {
+            score = Math.Max(baseScore, tokenRatio.Similarity(target, scoreCutoff) * 0.95);
+        }
+        else
+        {
+            double partialScale = lengthRatio > 8.0 ? 0.6 : 0.9;
+            score = Math.Max(
+                baseScore,
+                Math.Max(
+                    partialRatio.Similarity(target, scoreCutoff) * partialScale,
+                    partialTokenRatio.Similarity(target, scoreCutoff) * partialScale * 0.95));
+        }
+
+        return score >= scoreCutoff ? score : 0.0;
     }
 }

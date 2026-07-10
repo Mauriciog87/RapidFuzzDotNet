@@ -2,11 +2,12 @@ namespace RapidFuzz.Distance.Experimental;
 
 using RapidFuzz.Internal;
 
-public sealed class MultiLevenshtein<T>
+public sealed partial class MultiLevenshtein<T>
     where T : notnull, IEquatable<T>
 {
     private readonly GenericBatchIntegerMetricCore<T>? batchCore;
     private readonly GenericMultiIntegerDistanceScorerCore<T>? scalarCore;
+    private readonly LevenshteinWeights weights;
 
     public MultiLevenshtein(int capacity)
         : this(capacity, LevenshteinWeights.Default)
@@ -15,6 +16,8 @@ public sealed class MultiLevenshtein<T>
 
     public MultiLevenshtein(int capacity, LevenshteinWeights weights)
     {
+        this.weights = weights;
+
         if (weights == LevenshteinWeights.Default)
         {
             batchCore = new GenericBatchIntegerMetricCore<T>(capacity, GenericBatchMetric.Levenshtein);
@@ -33,6 +36,7 @@ public sealed class MultiLevenshtein<T>
     public MultiLevenshtein(IEnumerable<T[]> sources, LevenshteinWeights weights)
     {
         ArgumentNullException.ThrowIfNull(sources);
+        this.weights = weights;
 
         ICollection<T[]>? sourceCollection = sources as ICollection<T[]>;
         int capacity = sourceCollection?.Count ?? 0;
@@ -148,9 +152,16 @@ public sealed class MultiLevenshtein<T>
         CachedLevenshtein<T> scorer = new(source, weights);
         return new GenericIntegerDistanceScorer<T>(scorer.Distance, scorer.Similarity, scorer.NormalizedDistance, scorer.NormalizedSimilarity);
     }
+
+    internal ReadOnlySpan<T> GetCrossTypeSource(int index)
+    {
+        return batchCore is not null ? batchCore.GetSource(index) : scalarCore!.GetSource(index);
+    }
+
+    internal LevenshteinWeights CrossTypeWeights => weights;
 }
 
-public sealed class MultiIndel<T>
+public sealed partial class MultiIndel<T>
     where T : notnull, IEquatable<T>
 {
     private readonly GenericBatchIntegerMetricCore<T> core;
@@ -187,7 +198,7 @@ public sealed class MultiIndel<T>
 
 }
 
-public sealed class MultiLcsSeq<T>
+public sealed partial class MultiLcsSeq<T>
     where T : notnull, IEquatable<T>
 {
     private readonly GenericBatchIntegerMetricCore<T> core;
@@ -224,7 +235,7 @@ public sealed class MultiLcsSeq<T>
 
 }
 
-public sealed class MultiOsa<T>
+public sealed partial class MultiOsa<T>
     where T : notnull, IEquatable<T>
 {
     private readonly GenericBatchIntegerMetricCore<T> core;
@@ -261,38 +272,64 @@ public sealed class MultiOsa<T>
 
 }
 
-public sealed class MultiJaro<T>
+public sealed partial class MultiJaro<T>
     where T : notnull, IEquatable<T>
 {
     private readonly GenericMultiDoubleDistanceScorerCore<T> core;
+    private readonly GenericBatchJaroScorer<T> batch;
 
-    public MultiJaro(int capacity) => core = new GenericMultiDoubleDistanceScorerCore<T>(capacity, CreateScorer);
+    public MultiJaro(int capacity)
+    {
+        core = new GenericMultiDoubleDistanceScorerCore<T>(capacity, CreateScorer);
+        batch = new GenericBatchJaroScorer<T>(capacity, 0.0, false);
+    }
 
-    public MultiJaro(IEnumerable<T[]> sources) => core = new GenericMultiDoubleDistanceScorerCore<T>(sources, CreateScorer);
+    public MultiJaro(IEnumerable<T[]> sources)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+        ICollection<T[]>? sourceCollection = sources as ICollection<T[]>;
+        int capacity = sourceCollection?.Count ?? 0;
+        core = new GenericMultiDoubleDistanceScorerCore<T>(capacity, CreateScorer);
+        batch = new GenericBatchJaroScorer<T>(capacity, 0.0, false);
+
+        foreach (T[] source in sources)
+        {
+            if (source is null)
+            {
+                throw new ArgumentException("Sources cannot contain null arrays.", nameof(sources));
+            }
+
+            Insert(source);
+        }
+    }
 
     public int Count => core.Count;
 
-    public void Insert(ReadOnlySpan<T> source) => core.Insert(source);
+    public void Insert(ReadOnlySpan<T> source)
+    {
+        core.Insert(source);
+        batch.Insert(source);
+    }
 
-    public double[] Distances(ReadOnlySpan<T> target, double scoreCutoff = 1.0, double scoreHint = 1.0) => core.Distances(target, scoreCutoff, scoreHint);
+    public double[] Distances(ReadOnlySpan<T> target, double scoreCutoff = 1.0, double scoreHint = 1.0) => batch.Distances(target, scoreCutoff, scoreHint);
 
     public void Distances(ReadOnlySpan<T> target, Span<double> destination, double scoreCutoff = 1.0, double scoreHint = 1.0) =>
-        core.Distances(target, destination, scoreCutoff, scoreHint);
+        batch.Distances(target, destination, scoreCutoff, scoreHint);
 
-    public double[] Similarities(ReadOnlySpan<T> target, double scoreCutoff = 0.0, double scoreHint = 0.0) => core.Similarities(target, scoreCutoff, scoreHint);
+    public double[] Similarities(ReadOnlySpan<T> target, double scoreCutoff = 0.0, double scoreHint = 0.0) => batch.Similarities(target, scoreCutoff, scoreHint);
 
     public void Similarities(ReadOnlySpan<T> target, Span<double> destination, double scoreCutoff = 0.0, double scoreHint = 0.0) =>
-        core.Similarities(target, destination, scoreCutoff, scoreHint);
+        batch.Similarities(target, destination, scoreCutoff, scoreHint);
 
-    public double[] NormalizedDistances(ReadOnlySpan<T> target, double scoreCutoff = 1.0, double scoreHint = 1.0) => core.NormalizedDistances(target, scoreCutoff, scoreHint);
+    public double[] NormalizedDistances(ReadOnlySpan<T> target, double scoreCutoff = 1.0, double scoreHint = 1.0) => batch.Distances(target, scoreCutoff, scoreHint);
 
     public void NormalizedDistances(ReadOnlySpan<T> target, Span<double> destination, double scoreCutoff = 1.0, double scoreHint = 1.0) =>
-        core.NormalizedDistances(target, destination, scoreCutoff, scoreHint);
+        batch.Distances(target, destination, scoreCutoff, scoreHint);
 
-    public double[] NormalizedSimilarities(ReadOnlySpan<T> target, double scoreCutoff = 0.0, double scoreHint = 0.0) => core.NormalizedSimilarities(target, scoreCutoff, scoreHint);
+    public double[] NormalizedSimilarities(ReadOnlySpan<T> target, double scoreCutoff = 0.0, double scoreHint = 0.0) => batch.Similarities(target, scoreCutoff, scoreHint);
 
     public void NormalizedSimilarities(ReadOnlySpan<T> target, Span<double> destination, double scoreCutoff = 0.0, double scoreHint = 0.0) =>
-        core.NormalizedSimilarities(target, destination, scoreCutoff, scoreHint);
+        batch.Similarities(target, destination, scoreCutoff, scoreHint);
 
     private static GenericDoubleDistanceScorer<T> CreateScorer(ReadOnlySpan<T> source)
     {
@@ -301,46 +338,69 @@ public sealed class MultiJaro<T>
     }
 }
 
-public sealed class MultiJaroWinkler<T>
+public sealed partial class MultiJaroWinkler<T>
     where T : notnull, IEquatable<T>
 {
     private readonly GenericMultiDoubleDistanceScorerCore<T> core;
+    private readonly double prefixWeight;
+    private readonly GenericBatchJaroScorer<T> batch;
 
     public MultiJaroWinkler(int capacity, double prefixWeight = 0.1)
     {
         JaroWinkler.ValidatePrefixWeight(prefixWeight);
+        this.prefixWeight = prefixWeight;
         core = new GenericMultiDoubleDistanceScorerCore<T>(capacity, source => CreateScorer(source, prefixWeight));
+        batch = new GenericBatchJaroScorer<T>(capacity, prefixWeight, true);
     }
 
     public MultiJaroWinkler(IEnumerable<T[]> sources, double prefixWeight = 0.1)
     {
         JaroWinkler.ValidatePrefixWeight(prefixWeight);
-        core = new GenericMultiDoubleDistanceScorerCore<T>(sources, source => CreateScorer(source, prefixWeight));
+        this.prefixWeight = prefixWeight;
+        ArgumentNullException.ThrowIfNull(sources);
+        ICollection<T[]>? sourceCollection = sources as ICollection<T[]>;
+        int capacity = sourceCollection?.Count ?? 0;
+        core = new GenericMultiDoubleDistanceScorerCore<T>(capacity, source => CreateScorer(source, prefixWeight));
+        batch = new GenericBatchJaroScorer<T>(capacity, prefixWeight, true);
+
+        foreach (T[] source in sources)
+        {
+            if (source is null)
+            {
+                throw new ArgumentException("Sources cannot contain null arrays.", nameof(sources));
+            }
+
+            Insert(source);
+        }
     }
 
     public int Count => core.Count;
 
-    public void Insert(ReadOnlySpan<T> source) => core.Insert(source);
+    public void Insert(ReadOnlySpan<T> source)
+    {
+        core.Insert(source);
+        batch.Insert(source);
+    }
 
-    public double[] Distances(ReadOnlySpan<T> target, double scoreCutoff = 1.0, double scoreHint = 1.0) => core.Distances(target, scoreCutoff, scoreHint);
+    public double[] Distances(ReadOnlySpan<T> target, double scoreCutoff = 1.0, double scoreHint = 1.0) => batch.Distances(target, scoreCutoff, scoreHint);
 
     public void Distances(ReadOnlySpan<T> target, Span<double> destination, double scoreCutoff = 1.0, double scoreHint = 1.0) =>
-        core.Distances(target, destination, scoreCutoff, scoreHint);
+        batch.Distances(target, destination, scoreCutoff, scoreHint);
 
-    public double[] Similarities(ReadOnlySpan<T> target, double scoreCutoff = 0.0, double scoreHint = 0.0) => core.Similarities(target, scoreCutoff, scoreHint);
+    public double[] Similarities(ReadOnlySpan<T> target, double scoreCutoff = 0.0, double scoreHint = 0.0) => batch.Similarities(target, scoreCutoff, scoreHint);
 
     public void Similarities(ReadOnlySpan<T> target, Span<double> destination, double scoreCutoff = 0.0, double scoreHint = 0.0) =>
-        core.Similarities(target, destination, scoreCutoff, scoreHint);
+        batch.Similarities(target, destination, scoreCutoff, scoreHint);
 
-    public double[] NormalizedDistances(ReadOnlySpan<T> target, double scoreCutoff = 1.0, double scoreHint = 1.0) => core.NormalizedDistances(target, scoreCutoff, scoreHint);
+    public double[] NormalizedDistances(ReadOnlySpan<T> target, double scoreCutoff = 1.0, double scoreHint = 1.0) => batch.Distances(target, scoreCutoff, scoreHint);
 
     public void NormalizedDistances(ReadOnlySpan<T> target, Span<double> destination, double scoreCutoff = 1.0, double scoreHint = 1.0) =>
-        core.NormalizedDistances(target, destination, scoreCutoff, scoreHint);
+        batch.Distances(target, destination, scoreCutoff, scoreHint);
 
-    public double[] NormalizedSimilarities(ReadOnlySpan<T> target, double scoreCutoff = 0.0, double scoreHint = 0.0) => core.NormalizedSimilarities(target, scoreCutoff, scoreHint);
+    public double[] NormalizedSimilarities(ReadOnlySpan<T> target, double scoreCutoff = 0.0, double scoreHint = 0.0) => batch.Similarities(target, scoreCutoff, scoreHint);
 
     public void NormalizedSimilarities(ReadOnlySpan<T> target, Span<double> destination, double scoreCutoff = 0.0, double scoreHint = 0.0) =>
-        core.NormalizedSimilarities(target, destination, scoreCutoff, scoreHint);
+        batch.Similarities(target, destination, scoreCutoff, scoreHint);
 
     private static GenericDoubleDistanceScorer<T> CreateScorer(ReadOnlySpan<T> source, double prefixWeight)
     {
@@ -380,6 +440,7 @@ internal sealed class GenericMultiIntegerDistanceScorerCore<T>
 {
     private readonly GenericIntegerScorerFactory<T> scorerFactory;
     private readonly List<GenericIntegerDistanceScorer<T>> scorers;
+    private readonly List<T[]> sources;
 
     public GenericMultiIntegerDistanceScorerCore(int capacity, GenericIntegerScorerFactory<T> scorerFactory)
     {
@@ -392,6 +453,7 @@ internal sealed class GenericMultiIntegerDistanceScorerCore<T>
 
         this.scorerFactory = scorerFactory;
         scorers = new List<GenericIntegerDistanceScorer<T>>(capacity);
+        sources = new List<T[]>(capacity);
     }
 
     public GenericMultiIntegerDistanceScorerCore(IEnumerable<T[]> sources, GenericIntegerScorerFactory<T> scorerFactory)
@@ -402,6 +464,7 @@ internal sealed class GenericMultiIntegerDistanceScorerCore<T>
         this.scorerFactory = scorerFactory;
         ICollection<T[]>? sourceCollection = sources as ICollection<T[]>;
         scorers = new List<GenericIntegerDistanceScorer<T>>(sourceCollection?.Count ?? 0);
+        this.sources = new List<T[]>(sourceCollection?.Count ?? 0);
 
         foreach (T[] source in sources)
         {
@@ -416,7 +479,14 @@ internal sealed class GenericMultiIntegerDistanceScorerCore<T>
 
     public int Count => scorers.Count;
 
-    public void Insert(ReadOnlySpan<T> source) => scorers.Add(scorerFactory(source));
+    public void Insert(ReadOnlySpan<T> source)
+    {
+        T[] copy = source.ToArray();
+        sources.Add(copy);
+        scorers.Add(scorerFactory(copy));
+    }
+
+    public ReadOnlySpan<T> GetSource(int index) => sources[index];
 
     public int[] Distances(ReadOnlySpan<T> target, int scoreCutoff, int scoreHint)
     {
@@ -496,6 +566,7 @@ internal sealed class GenericMultiDoubleDistanceScorerCore<T>
 {
     private readonly GenericDoubleScorerFactory<T> scorerFactory;
     private readonly List<GenericDoubleDistanceScorer<T>> scorers;
+    private readonly List<T[]> sources;
 
     public GenericMultiDoubleDistanceScorerCore(int capacity, GenericDoubleScorerFactory<T> scorerFactory)
     {
@@ -508,6 +579,7 @@ internal sealed class GenericMultiDoubleDistanceScorerCore<T>
 
         this.scorerFactory = scorerFactory;
         scorers = new List<GenericDoubleDistanceScorer<T>>(capacity);
+        sources = new List<T[]>(capacity);
     }
 
     public GenericMultiDoubleDistanceScorerCore(IEnumerable<T[]> sources, GenericDoubleScorerFactory<T> scorerFactory)
@@ -518,6 +590,7 @@ internal sealed class GenericMultiDoubleDistanceScorerCore<T>
         this.scorerFactory = scorerFactory;
         ICollection<T[]>? sourceCollection = sources as ICollection<T[]>;
         scorers = new List<GenericDoubleDistanceScorer<T>>(sourceCollection?.Count ?? 0);
+        this.sources = new List<T[]>(sourceCollection?.Count ?? 0);
 
         foreach (T[] source in sources)
         {
@@ -532,7 +605,14 @@ internal sealed class GenericMultiDoubleDistanceScorerCore<T>
 
     public int Count => scorers.Count;
 
-    public void Insert(ReadOnlySpan<T> source) => scorers.Add(scorerFactory(source));
+    public void Insert(ReadOnlySpan<T> source)
+    {
+        T[] copy = source.ToArray();
+        sources.Add(copy);
+        scorers.Add(scorerFactory(copy));
+    }
+
+    public ReadOnlySpan<T> GetSource(int index) => sources[index];
 
     public double[] Distances(ReadOnlySpan<T> target, double scoreCutoff, double scoreHint)
     {

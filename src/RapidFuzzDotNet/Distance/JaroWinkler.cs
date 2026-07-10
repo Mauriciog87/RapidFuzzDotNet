@@ -2,7 +2,7 @@ using RapidFuzz.Internal;
 
 namespace RapidFuzz.Distance;
 
-public static class JaroWinkler
+public static partial class JaroWinkler
 {
     public static double Distance(string first, string second, double prefixWeight = 0.1, double scoreCutoff = 1.0)
     {

@@ -1,6 +1,6 @@
 namespace RapidFuzz.Distance;
 
-public static class Prefix
+public static partial class Prefix
 {
     public static int Distance(string first, string second, int scoreCutoff = int.MaxValue)
     {
