@@ -401,7 +401,7 @@ def readme_promotion_table(
     lines = [
         "| Date | Workflow | Hardware | Commits | Category results | Cases where .NET wins | Cases where .NET loses | Geomean vs best C++ | Geomean vs Python | Full results |",
         "| --- | --- | --- | --- | --- | --- | --- | ---: | ---: | --- |",
-        f"| {hardware_values.get('date', 'unknown')} | `{hardware_values.get('workflow', 'benchmarks')} / {metadata['tier']}` | "
+        f"| {hardware_values.get('date', 'unknown')} | `{hardware_values.get('workflow', 'benchmarks')} / {metadata.get('workflow_mode', metadata['tier'])}` | "
         f"{hardware_values.get('processor', 'unknown')} | {commits} | {category_text} | {case_summary(winning_cases)} | {case_summary(losing_cases)} | "
         f"{format_ratio(statistics.geometric_mean(cpp_values) if cpp_values else None)} | "
         f"{format_ratio(statistics.geometric_mean(python_values) if python_values else None)} | {run_cell} |",
@@ -441,6 +441,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--corpus", type=Path, required=True)
     parser.add_argument("--tier", choices=tuple(TIER_RANKS), required=True)
+    parser.add_argument("--workflow-mode", choices=tuple(TIER_RANKS), required=True)
     parser.add_argument("--google", action="append", default=[])
     parser.add_argument("--dotnet", action="append", default=[])
     parser.add_argument("--pyperf", action="append", default=[])
@@ -471,6 +472,7 @@ def main() -> int:
     metadata: dict[str, object] = {
         "corpus_sha256": corpus_sha,
         "tier": arguments.tier,
+        "workflow_mode": arguments.workflow_mode,
         "cell_count": cell_count,
         "unstable_case_count": sum(not result.stable for result in timings),
     }

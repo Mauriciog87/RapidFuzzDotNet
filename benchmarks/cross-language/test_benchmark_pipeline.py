@@ -8,6 +8,7 @@ from pathlib import Path
 import generate_corpus
 import report
 import validate_official_results
+import validate_supplementary_results
 
 
 class CorpusTests(unittest.TestCase):
@@ -76,7 +77,7 @@ class ParserTests(unittest.TestCase):
             table = report.readme_promotion_table(
                 summaries,
                 rows,
-                {"tier": "smoke", "hardware": {}},
+                {"tier": "smoke", "workflow_mode": "all", "hardware": {}},
                 {"rapidfuzz_cpp": "a" * 40, "rapidfuzz_python": "b" * 40},
             )
             csv_text = csv_path.read_text(encoding="utf-8")
@@ -87,6 +88,7 @@ class ParserTests(unittest.TestCase):
         self.assertIn("RapidFuzz cross-language benchmark comparison", html_text)
         self.assertIn("Geomean vs best C++", table)
         self.assertIn("Cases where .NET wins", table)
+        self.assertIn("benchmarks / all", table)
 
     def test_google_parser_normalizes_units(self) -> None:
         document = {
@@ -237,6 +239,55 @@ class OfficialResultTests(unittest.TestCase):
         self.assertEqual(77, result["cpp_registration_count"])
         self.assertEqual(108, result["expanded_workload_count"])
         self.assertEqual(8, result["python_scorer_count"])
+
+
+class SupplementaryResultTests(unittest.TestCase):
+    @staticmethod
+    def write_report(root: Path, runtime: str, names: list[str]) -> None:
+        result_directory = root / runtime / "results"
+        result_directory.mkdir(parents=True)
+        benchmarks = [{"FullName": name} for name in names]
+        (result_directory / "supplementary-report-full.json").write_text(
+            json.dumps({"Benchmarks": benchmarks}),
+            encoding="utf-8",
+        )
+
+    def test_complete_supplementary_result_inventory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            names = [
+                f"RapidFuzzDotNet.Benchmarks.Supplementary{index}"
+                for index in range(validate_supplementary_results.EXPECTED_WORKLOAD_COUNT)
+            ]
+            for runtime in validate_supplementary_results.RUNTIMES:
+                self.write_report(root, runtime, names)
+            result = validate_supplementary_results.validate(root)
+            self.assertEqual(268, result["expected_workload_count"])
+            self.assertEqual({"dotnet-net8": 268, "dotnet-net10": 268}, result["runtimes"])
+
+    def test_duplicate_supplementary_workload_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            names = [
+                f"RapidFuzzDotNet.Benchmarks.Supplementary{index}"
+                for index in range(validate_supplementary_results.EXPECTED_WORKLOAD_COUNT)
+            ]
+            names[-1] = names[-2]
+            for runtime in validate_supplementary_results.RUNTIMES:
+                self.write_report(root, runtime, names)
+            with self.assertRaisesRegex(ValueError, "duplicate benchmarks"):
+                validate_supplementary_results.validate(root)
+
+    def test_missing_supplementary_runtime_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            names = [
+                f"RapidFuzzDotNet.Benchmarks.Supplementary{index}"
+                for index in range(validate_supplementary_results.EXPECTED_WORKLOAD_COUNT)
+            ]
+            self.write_report(root, validate_supplementary_results.RUNTIMES[0], names)
+            with self.assertRaisesRegex(ValueError, "Expected one full JSON report"):
+                validate_supplementary_results.validate(root)
 
 
 if __name__ == "__main__":

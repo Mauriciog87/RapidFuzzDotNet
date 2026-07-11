@@ -170,7 +170,7 @@ The pinned Python benchmark is run verbatim and its original log and exit code a
 
 | Date | Workflow | Hardware | Commits | Category results | Cases where .NET wins | Cases where .NET loses | Geomean vs best C++ | Geomean vs Python | Full results |
 | --- | --- | --- | --- | --- | --- | --- | ---: | ---: | --- |
-| Pending reviewed run | `benchmarks / all` | Pending | C++ `b5830af`, Python `e891fed`, .NET pending | Not published | Not published | Not published | Not published | Not published | Artifact link pending |
+| 2026-07-11 | `benchmarks / all` | AMD EPYC 9V74, 4 logical CPUs visible | C++ `b5830af`, Python `e891fed`, .NET `25cf5ea` | Best C++ wins batch, core, and fuzz | 2 stable cases: Levenshtein static at lengths 256 and 1024 with equal inputs | 534 stable cases; largest gaps include WRatio and Jaro-Winkler with equal long inputs | 0.092x | 6.525x | [workflow artifact](https://github.com/Mauriciog87/RapidFuzzDotNet/actions/runs/29145006354/artifacts/8249111193) |
 
 The workflow never rewrites this table. A result is added only after reviewing the raw Google Benchmark, BenchmarkDotNet, and pyperf output, including the cases where RapidFuzzDotNet loses. The benchmark algorithms, test shapes, and optimization ideas remain Max's work; this repository only supplies the managed implementation and the comparison harness.
 

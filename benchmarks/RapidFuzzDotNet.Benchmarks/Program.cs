@@ -31,6 +31,7 @@ public static class Program
 }
 
 [MemoryDiagnoser]
+[JsonExporterAttribute.Full]
 public class FuzzBenchmarks
 {
     private readonly string first = "fuzzy wuzzy was a bear";
@@ -196,6 +197,7 @@ public class FuzzBenchmarks
 }
 
 [MemoryDiagnoser]
+[JsonExporterAttribute.Full]
 public class TokenizationBenchmarkParityBenchmarks
 {
     private readonly string denseWhitespaceSource = "   alpha   beta\tbeta\r\ngamma   ";
@@ -283,6 +285,7 @@ public class TokenizationBenchmarkParityBenchmarks
 }
 
 [MemoryDiagnoser]
+[JsonExporterAttribute.Full]
 public class LevenshteinBenchmarks
 {
     private readonly string shortFirst = "lewenstein";
@@ -366,6 +369,7 @@ public class LevenshteinBenchmarks
 }
 
 [MemoryDiagnoser]
+[JsonExporterAttribute.Full]
 public class LcsBenchmarks
 {
     private readonly string shortFirst = "lewenstein";
@@ -449,6 +453,7 @@ public class LcsBenchmarks
 }
 
 [MemoryDiagnoser]
+[JsonExporterAttribute.Full]
 public class JaroWinklerBenchmarks
 {
     private readonly string shortFirst = "lewenstein";
@@ -520,6 +525,289 @@ public class JaroWinklerBenchmarks
 }
 
 [MemoryDiagnoser]
+[JsonExporterAttribute.Full]
+public class UpstreamRegistrationBenchmarks
+{
+    private static readonly string[] RegistrationNames =
+    [
+        "LCS/LongSimilar",
+        "LCS/LongDifferent",
+        "LCS/Static/8",
+        "LCS/Static/16",
+        "LCS/Static/32",
+        "LCS/Static/64",
+        "LCS/Cached/8",
+        "LCS/Cached/16",
+        "LCS/Cached/32",
+        "LCS/Cached/64",
+        "LCS/SIMD/8",
+        "LCS/SIMD/16",
+        "LCS/SIMD/32",
+        "LCS/SIMD/64",
+        "Fuzz/Ratio1",
+        "Fuzz/Ratio2",
+        "Fuzz/PartialRatio1",
+        "Fuzz/PartialRatio2",
+        "Fuzz/TokenSort1",
+        "Fuzz/TokenSort2",
+        "Fuzz/PartialTokenSort1",
+        "Fuzz/PartialTokenSort2",
+        "Fuzz/TokenSet1",
+        "Fuzz/TokenSet2",
+        "Fuzz/PartialTokenSet1",
+        "Fuzz/PartialTokenSet2",
+        "Fuzz/Token1",
+        "Fuzz/Token2",
+        "Fuzz/PartialToken1",
+        "Fuzz/PartialToken2",
+        "Fuzz/WRatio1",
+        "Fuzz/WRatio2",
+        "Fuzz/WRatio3",
+        "Jaro/Static/8/8",
+        "Jaro/Static/16/16",
+        "Jaro/Static/32/32",
+        "Jaro/Static/64/64",
+        "Jaro/Cached/8/8",
+        "Jaro/Cached/16/16",
+        "Jaro/Cached/32/32",
+        "Jaro/Cached/64/64",
+        "Jaro/SIMD/8/8",
+        "Jaro/SIMD/16/16",
+        "Jaro/SIMD/32/32",
+        "Jaro/SIMD/64/64",
+        "Jaro/Static/8/1000",
+        "Jaro/Static/16/1000",
+        "Jaro/Static/32/1000",
+        "Jaro/Static/64/1000",
+        "Jaro/Cached/8/1000",
+        "Jaro/Cached/16/1000",
+        "Jaro/Cached/32/1000",
+        "Jaro/Cached/64/1000",
+        "Jaro/SIMD/8/1000",
+        "Jaro/SIMD/16/1000",
+        "Jaro/SIMD/32/1000",
+        "Jaro/SIMD/64/1000",
+        "Jaro/LongSimilar",
+        "Jaro/LongDifferent",
+        "Levenshtein/LongSimilar",
+        "Levenshtein/LongDifferent",
+        "Levenshtein/WeightedDistance1",
+        "Levenshtein/WeightedDistance2",
+        "Levenshtein/WeightedNormalizedDistance1",
+        "Levenshtein/WeightedNormalizedDistance2",
+        "Levenshtein/Static/8",
+        "Levenshtein/Static/16",
+        "Levenshtein/Static/32",
+        "Levenshtein/Static/64",
+        "Levenshtein/Cached/8",
+        "Levenshtein/Cached/16",
+        "Levenshtein/Cached/32",
+        "Levenshtein/Cached/64",
+        "Levenshtein/SIMD/8",
+        "Levenshtein/SIMD/16",
+        "Levenshtein/SIMD/32",
+        "Levenshtein/SIMD/64"
+    ];
+
+    private string first = string.Empty;
+    private string second = string.Empty;
+    private CachedLcsSeq cachedLcs = new(string.Empty);
+    private CachedJaro cachedJaro = new(string.Empty);
+    private CachedLevenshtein cachedLevenshtein = new(string.Empty);
+    private MultiLcsSeq multiLcs = new(0);
+    private MultiJaro multiJaro = new(0);
+    private MultiLevenshtein multiLevenshtein = new(0);
+    private int[] integerBuffer = [];
+    private double[] doubleBuffer = [];
+
+    [ParamsSource(nameof(Registrations))]
+    public string Registration { get; set; } = string.Empty;
+
+    public static IEnumerable<string> Registrations => RegistrationNames;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        string[] parts = Registration.Split('/');
+        int firstLength = 11;
+        int secondLength = 11;
+
+        if (parts.Length > 2 && int.TryParse(parts[2], out int parsedFirstLength))
+        {
+            firstLength = parsedFirstLength;
+        }
+
+        if (parts.Length > 3 && int.TryParse(parts[3], out int parsedSecondLength))
+        {
+            secondLength = parsedSecondLength;
+        }
+        else
+        {
+            secondLength = firstLength;
+        }
+
+        if (Registration.EndsWith("LongSimilar", StringComparison.Ordinal))
+        {
+            firstLength = 500;
+            secondLength = 500;
+        }
+        else if (Registration.EndsWith("LongDifferent", StringComparison.Ordinal))
+        {
+            firstLength = 500;
+            secondLength = 500;
+        }
+
+        first = CreateSequence(firstLength, 0);
+        second = CreateSequence(secondLength, Registration.Contains("Different", StringComparison.Ordinal) ? 11 : 1);
+        cachedLcs = new CachedLcsSeq(first);
+        cachedJaro = new CachedJaro(first);
+        cachedLevenshtein = new CachedLevenshtein(first);
+        int batchCount = Math.Max(8, System.Numerics.Vector<ulong>.Count * 2);
+        string[] sources = Enumerable.Range(0, batchCount).Select(offset => CreateSequence(firstLength, offset)).ToArray();
+        multiLcs = new MultiLcsSeq(sources);
+        multiJaro = new MultiJaro(sources);
+        multiLevenshtein = new MultiLevenshtein(sources);
+        integerBuffer = new int[batchCount];
+        doubleBuffer = new double[batchCount];
+    }
+
+    [Benchmark]
+    public double Execute()
+    {
+        string[] parts = Registration.Split('/');
+
+        return parts[0] switch
+        {
+            "LCS" => ExecuteLcs(parts[1]),
+            "Fuzz" => ExecuteFuzz(parts[1]),
+            "Jaro" => ExecuteJaro(parts[1]),
+            "Levenshtein" => ExecuteLevenshtein(parts[1]),
+            _ => throw new InvalidOperationException("Unknown upstream benchmark registration.")
+        };
+    }
+
+    private double ExecuteLcs(string mode)
+    {
+        if (mode is "LongSimilar" or "LongDifferent" or "Static")
+        {
+            return LcsSeq.Similarity(first, second);
+        }
+
+        if (mode == "Cached")
+        {
+            return cachedLcs.Similarity(second);
+        }
+
+        multiLcs.Similarities(second, integerBuffer);
+        return Sum(integerBuffer);
+    }
+
+    private double ExecuteFuzz(string name)
+    {
+        return name switch
+        {
+            "Ratio1" => Fuzz.Ratio(first, second),
+            "Ratio2" => Fuzz.Ratio(first, CreateSequence(second.Length, 11)),
+            "PartialRatio1" => Fuzz.PartialRatio(first, second),
+            "PartialRatio2" => Fuzz.PartialRatio(first, CreateSequence(second.Length, 11)),
+            "TokenSort1" => Fuzz.TokenSortRatio(first, second),
+            "TokenSort2" => Fuzz.TokenSortRatio(first, CreateSequence(second.Length, 11)),
+            "PartialTokenSort1" => Fuzz.PartialTokenSortRatio(first, second),
+            "PartialTokenSort2" => Fuzz.PartialTokenSortRatio(first, CreateSequence(second.Length, 11)),
+            "TokenSet1" => Fuzz.TokenSetRatio(first, second),
+            "TokenSet2" => Fuzz.TokenSetRatio(first, CreateSequence(second.Length, 11)),
+            "PartialTokenSet1" => Fuzz.PartialTokenSetRatio(first, second),
+            "PartialTokenSet2" => Fuzz.PartialTokenSetRatio(first, CreateSequence(second.Length, 11)),
+            "Token1" => Fuzz.TokenRatio(first, second),
+            "Token2" => Fuzz.TokenRatio(first, CreateSequence(second.Length, 11)),
+            "PartialToken1" => Fuzz.PartialTokenRatio(first, second),
+            "PartialToken2" => Fuzz.PartialTokenRatio(first, CreateSequence(second.Length, 11)),
+            "WRatio1" => Fuzz.WRatio(first, second),
+            "WRatio2" => Fuzz.WRatio(first, second + CreateSequence(32, 3)),
+            "WRatio3" => Fuzz.WRatio(first, CreateSequence(second.Length, 11)),
+            _ => throw new InvalidOperationException("Unknown fuzz benchmark registration.")
+        };
+    }
+
+    private double ExecuteJaro(string mode)
+    {
+        if (mode is "LongSimilar" or "LongDifferent" or "Static")
+        {
+            return Jaro.Similarity(first, second);
+        }
+
+        if (mode == "Cached")
+        {
+            return cachedJaro.Similarity(second);
+        }
+
+        multiJaro.Similarities(second, doubleBuffer);
+        return Sum(doubleBuffer);
+    }
+
+    private double ExecuteLevenshtein(string mode)
+    {
+        if (mode is "LongSimilar" or "LongDifferent" or "Static")
+        {
+            return Levenshtein.Distance(first, second);
+        }
+
+        if (mode == "Cached")
+        {
+            return cachedLevenshtein.Distance(second);
+        }
+
+        if (mode == "SIMD")
+        {
+            multiLevenshtein.Distances(second, integerBuffer);
+            return Sum(integerBuffer);
+        }
+
+        LevenshteinWeights weights = new(1, 1, 2);
+        return mode.StartsWith("WeightedNormalized", StringComparison.Ordinal)
+            ? Levenshtein.NormalizedDistance(first, second, weights)
+            : Levenshtein.Distance(first, second, weights);
+    }
+
+    private static string CreateSequence(int length, int offset)
+    {
+        char[] result = new char[length];
+
+        for (int index = 0; index < result.Length; index++)
+        {
+            result[index] = (char)('a' + ((index + offset) % 23));
+        }
+
+        return new string(result);
+    }
+
+    private static double Sum(ReadOnlySpan<int> values)
+    {
+        int total = 0;
+
+        for (int index = 0; index < values.Length; index++)
+        {
+            total += values[index];
+        }
+
+        return total;
+    }
+
+    private static double Sum(ReadOnlySpan<double> values)
+    {
+        double total = 0.0;
+
+        for (int index = 0; index < values.Length; index++)
+        {
+            total += values[index];
+        }
+
+        return total;
+    }
+}
+
+[MemoryDiagnoser]
+[JsonExporterAttribute.Full]
 public class UpstreamBenchmarkParityBenchmarks
 {
     private readonly string similarFirst = "aaaaa aaaaa";
@@ -834,6 +1122,7 @@ public class UpstreamBenchmarkParityBenchmarks
 }
 
 [MemoryDiagnoser]
+[JsonExporterAttribute.Full]
 public class DistanceBenchmarks
 {
     private readonly string first = "lewenstein";
@@ -1096,6 +1385,7 @@ public class DistanceBenchmarks
 }
 
 [MemoryDiagnoser]
+[JsonExporterAttribute.Full]
 public class ProcessBenchmarks
 {
     private readonly string query = "new york mets";
@@ -1136,6 +1426,7 @@ public class ProcessBenchmarks
 }
 
 [MemoryDiagnoser]
+[JsonExporterAttribute.Full]
 public class ExperimentalBenchmarks
 {
     private readonly double[] scores = new double[3];

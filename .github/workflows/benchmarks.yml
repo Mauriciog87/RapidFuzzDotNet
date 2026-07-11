@@ -348,18 +348,19 @@ jobs:
         if: env.MODE == 'all'
         run: |
           filters=(
-            "*RapidFuzzDotNet.Benchmarks.FuzzBenchmarks*"
-            "*TokenizationBenchmarkParityBenchmarks*"
-            "*LevenshteinBenchmarks*"
-            "*LcsBenchmarks*"
-            "*JaroWinklerBenchmarks*"
-            "*UpstreamBenchmarkParityBenchmarks*"
-            "*DistanceBenchmarks*"
-            "*ProcessBenchmarks*"
-            "*ExperimentalBenchmarks*"
-            "*ManagedParityBenchmarks*"
-            "*PartialRatioOptimizationBenchmarks*"
-            "*JaroSimdBenchmarks*"
+            "*RapidFuzzDotNet.Benchmarks.FuzzBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.TokenizationBenchmarkParityBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.LevenshteinBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.LcsBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.JaroWinklerBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.UpstreamRegistrationBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.UpstreamBenchmarkParityBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.DistanceBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.ProcessBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.ExperimentalBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.ManagedParityBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.PartialRatioOptimizationBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.JaroSimdBenchmarks.*"
           )
           for framework in net8.0 net10.0; do
             if [ "$framework" = net8.0 ]; then
@@ -377,6 +378,12 @@ jobs:
               --join \
               --artifacts "artifacts/benchmark-run/supplementary/$runtime"
           done
+      - name: Validate .NET supplementary results
+        if: env.MODE == 'all'
+        run: |
+          artifacts/benchmark-venv/bin/python benchmarks/cross-language/validate_supplementary_results.py \
+            --root artifacts/benchmark-run/supplementary \
+            | tee artifacts/benchmark-run/metadata/supplementary-results.json
       - name: Generate comparison report
         if: env.MODE == 'smoke' || env.MODE == 'common' || env.MODE == 'all'
         run: |
@@ -387,6 +394,7 @@ jobs:
           artifacts/benchmark-venv/bin/python benchmarks/cross-language/report.py \
             --corpus artifacts/benchmark-corpus \
             --tier "$([ "$MODE" = smoke ] && echo smoke || echo common)" \
+            --workflow-mode "$MODE" \
             --google cpp-gcc=artifacts/benchmark-run/common/cpp-gcc.json \
             --google cpp-clang=artifacts/benchmark-run/common/cpp-clang.json \
             --dotnet dotnet-net10=artifacts/benchmark-run/common/dotnet-net10 \
