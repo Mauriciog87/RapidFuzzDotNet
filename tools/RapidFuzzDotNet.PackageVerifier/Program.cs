@@ -15,6 +15,19 @@ public static class Program
 
     public static int Main(string[] args)
     {
+        try
+        {
+            return Run(args);
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine($"Package verification failed: {exception.Message.Trim()}");
+            return 2;
+        }
+    }
+
+    private static int Run(string[] args)
+    {
         VerifierOptions options = VerifierOptions.Parse(args);
         string packagePath = FindSinglePackage(options.PackageDirectory, ".nupkg");
         string symbolPackagePath = FindSinglePackage(options.PackageDirectory, ".snupkg");

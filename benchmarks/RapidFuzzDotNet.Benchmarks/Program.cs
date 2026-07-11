@@ -10,9 +10,18 @@ namespace RapidFuzzDotNet.Benchmarks;
 
 public static class Program
 {
-    public static void Main(string[] args)
+    public static int Main(string[] args)
     {
-        BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
+        try
+        {
+            BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
+            return 0;
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine($"Benchmark execution failed: {exception.Message.Trim()}");
+            return 2;
+        }
     }
 }
 

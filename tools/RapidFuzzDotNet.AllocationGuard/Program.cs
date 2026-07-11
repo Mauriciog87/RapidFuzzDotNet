@@ -10,6 +10,27 @@ public static class Program
 {
     public static int Main(string[] args)
     {
+        try
+        {
+            return Run(args);
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine($"Allocation guard failed: {exception.Message.Trim()}");
+            return 2;
+        }
+    }
+
+    private static int Run(string[] args)
+    {
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (!string.Equals(args[i], "--update-baseline", StringComparison.Ordinal))
+            {
+                throw new ArgumentException($"Unknown argument '{args[i]}'.", nameof(args));
+            }
+        }
+
         bool updateBaseline = args.Contains("--update-baseline", StringComparer.Ordinal);
         AllocationScenario[] scenarios = CreateScenarios();
         int failures = 0;
