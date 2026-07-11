@@ -81,6 +81,8 @@ def create_token_pair(random_source: random.Random, length: int, pattern: str) -
 def core_tier(algorithm: str, length: int, pattern: str, mode: str) -> str:
     if mode == "static" and algorithm in {"levenshtein", "jaro", "ratio"} and length in {8, 64} and pattern == "similar":
         return "smoke"
+    if mode == "cutoff" and algorithm in {"jaro", "jaro_winkler"} and length == 64 and pattern == "similar":
+        return "smoke"
     if mode == "cutoff":
         return "common"
     if mode == "cached" and length == 64 and pattern == "similar" and algorithm in {"levenshtein", "jaro", "ratio"}:
@@ -107,7 +109,7 @@ def create_cases() -> list[tuple[str, str, str, str, str, str, str, str]]:
                 pair_id = f"pair-{length}-{pattern}"
                 cutoff = "0.9" if algorithm in {"jaro", "jaro_winkler"} else "90" if algorithm == "ratio" else "30"
                 case_id = f"core/{algorithm}/cutoff/{length}/{pattern}"
-                cases.append((case_id, "core", algorithm, "cutoff", pair_id, cutoff, "common", "cpp,dotnet,python"))
+                cases.append((case_id, "core", algorithm, "cutoff", pair_id, cutoff, core_tier(algorithm, length, pattern, "cutoff"), "cpp,dotnet,python"))
         for length in (8, 64, 256, 1024):
             for pattern in ("similar", "different"):
                 pair_id = f"pair-{length}-{pattern}"

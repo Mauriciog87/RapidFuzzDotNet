@@ -24,6 +24,14 @@ class CorpusTests(unittest.TestCase):
             self.assertEqual(1_000_000, cell_count)
             self.assertEqual(first["corpus_sha256"], corpus_hash)
 
+    def test_smoke_includes_similarity_cutoff_contracts(self) -> None:
+        cases = generate_corpus.create_cases()
+        smoke_ids = {case[0] for case in cases if case[6] == "smoke"}
+        self.assertIn("core/jaro/cutoff/64/similar", smoke_ids)
+        self.assertIn("core/jaro_winkler/cutoff/64/similar", smoke_ids)
+        jaro_cutoffs = {case[5] for case in cases if case[2] in {"jaro", "jaro_winkler"} and case[3] == "cutoff"}
+        self.assertEqual({"0.9"}, jaro_cutoffs)
+
 
 class ParserTests(unittest.TestCase):
     def test_complete_smoke_pipeline_uses_consistent_runtime_labels(self) -> None:

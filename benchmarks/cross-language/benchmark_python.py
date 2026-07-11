@@ -103,6 +103,10 @@ def scorer_for(algorithm: str) -> Callable[..., float]:
         raise ValueError(f"Unknown fuzz scorer '{algorithm}'.") from error
 
 
+def enforce_similarity_cutoff(score: float, score_cutoff: float, uses_cutoff: bool) -> float:
+    return score if not uses_cutoff or score >= score_cutoff else 0.0
+
+
 def measure_individual(benchmark_case: BenchmarkCase) -> float:
     cutoff = benchmark_case.score_cutoff
     source = benchmark_case.source
@@ -118,9 +122,11 @@ def measure_individual(benchmark_case: BenchmarkCase) -> float:
     if benchmark_case.algorithm == "lcs_seq":
         return float(LCSseq.similarity(source, target, score_cutoff=int(cutoff)) if uses_cutoff else LCSseq.similarity(source, target))
     if benchmark_case.algorithm == "jaro":
-        return float(Jaro.similarity(source, target, score_cutoff=cutoff) if uses_cutoff else Jaro.similarity(source, target))
+        score = float(Jaro.similarity(source, target, score_cutoff=cutoff) if uses_cutoff else Jaro.similarity(source, target))
+        return enforce_similarity_cutoff(score, cutoff, uses_cutoff)
     if benchmark_case.algorithm == "jaro_winkler":
-        return float(JaroWinkler.similarity(source, target, prefix_weight=0.1, score_cutoff=cutoff) if uses_cutoff else JaroWinkler.similarity(source, target))
+        score = float(JaroWinkler.similarity(source, target, prefix_weight=0.1, score_cutoff=cutoff) if uses_cutoff else JaroWinkler.similarity(source, target))
+        return enforce_similarity_cutoff(score, cutoff, uses_cutoff)
     if benchmark_case.algorithm == "ratio":
         return float(fuzz.ratio(source, target, score_cutoff=cutoff) if uses_cutoff else fuzz.ratio(source, target))
     raise ValueError(f"Unknown core scorer '{benchmark_case.algorithm}'.")
