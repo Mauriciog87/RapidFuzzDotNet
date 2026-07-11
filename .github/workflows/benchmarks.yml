@@ -64,6 +64,9 @@ jobs:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash --noprofile --norc -eo pipefail {0}
     env:
       MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'smoke' }}
       OMP_NUM_THREADS: 1
@@ -225,7 +228,9 @@ jobs:
               "*CrossLanguageLevenshteinStaticBenchmarks*"
               "*CrossLanguageLevenshteinCachedBenchmarks*"
               "*CrossLanguageJaroStaticBenchmarks*"
+              "*CrossLanguageJaroCutoffBenchmarks*"
               "*CrossLanguageJaroCachedBenchmarks*"
+              "*CrossLanguageJaroWinklerCutoffBenchmarks*"
               "*CrossLanguageRatioStaticBenchmarks*"
               "*CrossLanguageRatioCachedBenchmarks*"
               "*CrossLanguageFuzzRatioStaticBenchmarks*"
@@ -247,7 +252,9 @@ jobs:
               --benchmark_report_aggregates_only=false \
               --benchmark_out="artifacts/benchmark-run/common/cpp-$compiler.json" \
               --benchmark_out_format=json \
-              | tee "artifacts/benchmark-run/common/cpp-$compiler.log"
+              2>&1 | tee "artifacts/benchmark-run/common/cpp-$compiler.log"
+            test -s "artifacts/benchmark-run/common/cpp-$compiler.json"
+            test -s "artifacts/benchmark-run/validation/cpp-$compiler.json"
           done
           unset RAPIDFUZZ_BENCHMARK_VALIDATION_OUTPUT
           for framework in net8.0 net10.0; do
