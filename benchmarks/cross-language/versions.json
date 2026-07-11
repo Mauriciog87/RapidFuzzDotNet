@@ -1,0 +1,14 @@
+{
+  "benchmarkdotnet": "0.15.8",
+  "clang": "18",
+  "fuzzywuzzy": "0.18.0",
+  "gcc": "14",
+  "google_benchmark": "c4114ca2b76eefdb48222abff96c12160614b737",
+  "googletest": "58d77fa8070e8cec2dc1ed015d66b454c8d78850",
+  "matplotlib": "3.11.0",
+  "numpy": "2.5.1",
+  "pyperf": "2.10.0",
+  "python": "3.12",
+  "rapidfuzz_cpp": "b5830af53bd1b3c7460a8de1e9f7095df99b3470",
+  "rapidfuzz_python": "e891fedbd7948d228fcd4786e677a7ef9230f4af"
+}

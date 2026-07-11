@@ -7,3 +7,5 @@ BenchmarkDotNet.Artifacts/
 .vscode/
 *.user
 .idea/
+__pycache__/
+*.pyc

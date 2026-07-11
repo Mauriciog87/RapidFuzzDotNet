@@ -170,7 +170,7 @@ public static partial class Program
             upstreamCount += BenchmarkRegistrationRegex().Count(content);
         }
 
-        string localContent = File.ReadAllText(Path.Combine(rootPath, "benchmarks", "RapidFuzzDotNet.Benchmarks", "Program.cs"));
+        string localContent = File.ReadAllText(Path.Combine(rootPath, "benchmarks", "RapidFuzzDotNet.Benchmarks", "OfficialCppParityBenchmarks.cs"));
         Match block = LocalBenchmarkBlockRegex().Match(localContent);
         int localCount = block.Success ? QuotedValueRegex().Count(block.Groups[1].Value) : 0;
         return Check("benchmarks", upstreamCount == 77 && localCount == 77, "77/77", $"{upstreamCount}/{localCount}");

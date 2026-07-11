@@ -156,9 +156,23 @@ These are .NET implementation choices, not new algorithmic claims. The performan
 
 ## Upstream Tracking
 
-The repository carries an auditor that checks the pinned upstream SHA, public algorithms, named fixtures, fuzz targets, and benchmark registrations. The current baseline covers 64 upstream fixtures, nine fuzz targets, and 77 benchmark registrations. Deterministic fuzzing and independent reference implementations exercise strings, bytes, integers, record structs, cached scorers, multi scorers, slices, and cross-type comparisons.
+The repository carries an auditor that checks the pinned upstream SHA, public algorithms, named fixtures, fuzz targets, and benchmark registrations. The current baseline covers 64 upstream fixtures, nine fuzz targets, and 77 benchmark registrations. Those registrations expand to 108 measured C++ workloads after their argument sets are applied, and CI requires the .NET suite to produce the same workload count and distribution. Deterministic fuzzing and independent reference implementations exercise strings, bytes, integers, record structs, cached scorers, multi scorers, slices, and cross-type comparisons.
 
 That machinery is here for one reason: a port should earn trust by agreeing with its source, not by borrowing the source project's reputation.
+
+## Benchmarks
+
+The benchmark workflow builds Max Bachmann's original [LCS](https://github.com/rapidfuzz/rapidfuzz-cpp/blob/b5830af53bd1b3c7460a8de1e9f7095df99b3470/bench/bench-lcs.cpp), [Levenshtein](https://github.com/rapidfuzz/rapidfuzz-cpp/blob/b5830af53bd1b3c7460a8de1e9f7095df99b3470/bench/bench-levenshtein.cpp), [Jaro](https://github.com/rapidfuzz/rapidfuzz-cpp/blob/b5830af53bd1b3c7460a8de1e9f7095df99b3470/bench/bench-jarowinkler.cpp), and [fuzz](https://github.com/rapidfuzz/rapidfuzz-cpp/blob/b5830af53bd1b3c7460a8de1e9f7095df99b3470/bench/bench-fuzz.cpp) executables without rewriting them. It also builds RapidFuzz Python from its pinned source commit and runs a shared ASCII corpus through C++, Python, `net8.0`, and `net10.0` on one Ubuntu runner.
+
+The shared corpus is the apples-to-apples comparison. It uses seed `18`, stores a SHA-256 for every input file, pins one CPU, and checks every result before timing. The official C++ programs remain available as their author wrote them; because they use `std::random_device` for their large generated datasets, those native runs reproduce the workload shape rather than identical random bytes. Results above `1.0x` mean .NET was faster than the fastest C++ result from GCC 14 or Clang 18. A run with more than 10% variation is not eligible for promotion.
+
+The pinned Python benchmark is run verbatim and its original log and exit code are retained. Its boolean processor placeholders no longer satisfy the current callable processor contract, so a companion runner applies the intended default processor and completes all eight scorers against the same million-cell corpus. FuzzyWuzzy is reported only as historical context, not as the primary competitor.
+
+| Date | Workflow | Hardware | Commits | Category results | Cases where .NET wins | Cases where .NET loses | Geomean vs best C++ | Geomean vs Python | Full results |
+| --- | --- | --- | --- | --- | --- | --- | ---: | ---: | --- |
+| Pending reviewed run | `benchmarks / all` | Pending | C++ `b5830af`, Python `e891fed`, .NET pending | Not published | Not published | Not published | Not published | Not published | Artifact link pending |
+
+The workflow never rewrites this table. A result is added only after reviewing the raw Google Benchmark, BenchmarkDotNet, and pyperf output, including the cases where RapidFuzzDotNet loses. The benchmark algorithms, test shapes, and optimization ideas remain Max's work; this repository only supplies the managed implementation and the comparison harness.
 
 ## Build And Test
 
