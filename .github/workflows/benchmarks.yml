@@ -91,11 +91,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes gcc-14 g++-14 clang-18 cmake ninja-build ccache ripgrep
+      - name: Fingerprint native compiler targets
+        id: native-target
+        run: |
+          fingerprint="$({
+            gcc-14 -march=native -Q --help=target
+            clang-18 -### -march=native -x c++ -c /dev/null
+          } 2>&1 | sha256sum | cut -d ' ' -f 1)"
+          printf 'fingerprint=%s\n' "$fingerprint" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ccache
-          key: benchmark-ccache-${{ runner.os }}-${{ hashFiles('benchmarks/cross-language/versions.json', 'benchmarks/cross-language/cpp/**') }}
-          restore-keys: benchmark-ccache-${{ runner.os }}-
+          key: benchmark-ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.native-target.outputs.fingerprint }}-${{ hashFiles('benchmarks/cross-language/versions.json', 'benchmarks/cross-language/cpp/**') }}
+          restore-keys: benchmark-ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.native-target.outputs.fingerprint }}-
       - uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
