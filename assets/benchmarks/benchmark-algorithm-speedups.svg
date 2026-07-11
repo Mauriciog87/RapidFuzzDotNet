@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="930" viewBox="0 0 1200 930" role="img" aria-labelledby="title desc">
+<title id="title">Speedup by algorithm on exact shared cases</title>
+<desc id="desc">Geometric mean speedups compare .NET 10 with the fastest C++ result and RapidFuzz Python across 489 exact shared stable cases. .NET trails C++ for every algorithm aggregate. It leads Python for all aggregates except TokenSetRatio and PartialTokenSetRatio.</desc>
+<style>
+text { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #1f2328; letter-spacing: 0; }
+.title { font-size: 30px; font-weight: 700; }
+.subtitle { font-size: 17px; fill: #57606a; }
+.row { font-size: 17px; font-weight: 700; }
+.small { font-size: 14px; fill: #57606a; }
+.value { font-size: 14px; font-weight: 700; }
+.tick { font-size: 14px; fill: #57606a; }
+.legend { font-size: 16px; font-weight: 600; }
+.note { font-size: 15px; fill: #57606a; }
+</style>
+<rect width="1200" height="930" fill="#ffffff"/>
+<rect x="1" y="1" width="1198" height="928" rx="8" fill="none" stroke="#d0d7de" stroke-width="2"/>
+<text x="60" y="52" class="title">Where the performance gap comes from</text>
+<text x="60" y="82" class="subtitle">Geometric mean speedup across 489 exact shared stable cases; values above 1x favor .NET</text>
+<rect x="750" y="99" width="14" height="14" fill="#cf222e" transform="rotate(45 757 106)"/>
+<text x="774" y="112" class="legend">vs fastest C++</text>
+<circle cx="965" cy="106" r="8" fill="#1a7f37"/>
+<text x="983" y="112" class="legend">vs Python</text>
+<line x1="365" y1="142" x2="365" y2="830" stroke="#d8dee4" stroke-width="1"/>
+<text x="365" y="854" text-anchor="middle" class="tick">0.01x</text>
+<line x1="557.5" y1="142" x2="557.5" y2="830" stroke="#d8dee4" stroke-width="1"/>
+<text x="557.5" y="854" text-anchor="middle" class="tick">0.1x</text>
+<line x1="750" y1="142" x2="750" y2="830" stroke="#24292f" stroke-width="2"/>
+<text x="750" y="854" text-anchor="middle" class="tick">1x</text>
+<line x1="942.5" y1="142" x2="942.5" y2="830" stroke="#d8dee4" stroke-width="1"/>
+<text x="942.5" y="854" text-anchor="middle" class="tick">10x</text>
+<line x1="1135" y1="142" x2="1135" y2="830" stroke="#d8dee4" stroke-width="1"/>
+<text x="1135" y="854" text-anchor="middle" class="tick">100x</text>
+<text x="55" y="189" class="row">Levenshtein</text>
+<text x="300" y="189" text-anchor="end" class="small">n=36</text>
+<line x1="577.0" y1="184" x2="1019.1" y2="184" stroke="#afb8c1" stroke-width="3" stroke-linecap="round"/>
+<rect x="570" y="177" width="14" height="14" fill="#cf222e" stroke="#ffffff" stroke-width="2" transform="rotate(45 577 184)"/>
+<text x="577.0" y="167" text-anchor="middle" class="value" fill="#a40e26">0.126x</text>
+<circle cx="1019.1" cy="184" r="9" fill="#1a7f37" stroke="#ffffff" stroke-width="2"/>
+<text x="1019.1" y="167" text-anchor="middle" class="value" fill="#116329">24.987x</text>
+<text x="55" y="240" class="row">Indel</text>
+<text x="300" y="240" text-anchor="end" class="small">n=36</text>
+<line x1="516.8" y1="235" x2="906.6" y2="235" stroke="#afb8c1" stroke-width="3" stroke-linecap="round"/>
+<rect x="509.8" y="228" width="14" height="14" fill="#cf222e" stroke="#ffffff" stroke-width="2" transform="rotate(45 516.8 235)"/>
+<text x="516.8" y="218" text-anchor="middle" class="value" fill="#a40e26">0.061x</text>
+<circle cx="906.6" cy="235" r="9" fill="#1a7f37" stroke="#ffffff" stroke-width="2"/>
+<text x="906.6" y="218" text-anchor="middle" class="value" fill="#116329">6.512x</text>
+<text x="55" y="291" class="row">LCSseq</text>
+<text x="300" y="291" text-anchor="end" class="small">n=36</text>
+<line x1="515.3" y1="286" x2="905.0" y2="286" stroke="#afb8c1" stroke-width="3" stroke-linecap="round"/>
+<rect x="508.3" y="279" width="14" height="14" fill="#cf222e" stroke="#ffffff" stroke-width="2" transform="rotate(45 515.3 286)"/>
+<text x="515.3" y="269" text-anchor="middle" class="value" fill="#a40e26">0.060x</text>
+<circle cx="905.0" cy="286" r="9" fill="#1a7f37" stroke="#ffffff" stroke-width="2"/>
+<text x="905.0" y="269" text-anchor="middle" class="value" fill="#116329">6.386x</text>
+<text x="55" y="342" class="row">Jaro</text>
+<text x="300" y="342" text-anchor="end" class="small">n=35</text>
+<line x1="518.1" y1="337" x2="1031.9" y2="337" stroke="#afb8c1" stroke-width="3" stroke-linecap="round"/>
+<rect x="511.1" y="330" width="14" height="14" fill="#cf222e" stroke="#ffffff" stroke-width="2" transform="rotate(45 518.1 337)"/>
+<text x="518.1" y="320" text-anchor="middle" class="value" fill="#a40e26">0.062x</text>
+<circle cx="1031.9" cy="337" r="9" fill="#1a7f37" stroke="#ffffff" stroke-width="2"/>
+<text x="1031.9" y="320" text-anchor="middle" class="value" fill="#116329">29.144x</text>
+<text x="55" y="393" class="row">Jaro-Winkler</text>
+<text x="300" y="393" text-anchor="end" class="small">n=36</text>
+<line x1="473.5" y1="388" x2="987.1" y2="388" stroke="#afb8c1" stroke-width="3" stroke-linecap="round"/>
+<rect x="466.5" y="381" width="14" height="14" fill="#cf222e" stroke="#ffffff" stroke-width="2" transform="rotate(45 473.5 388)"/>
+<text x="473.5" y="371" text-anchor="middle" class="value" fill="#a40e26">0.037x</text>
+<circle cx="987.1" cy="388" r="9" fill="#1a7f37" stroke="#ffffff" stroke-width="2"/>
+<text x="987.1" y="371" text-anchor="middle" class="value" fill="#116329">17.057x</text>
+<text x="55" y="444" class="row">Ratio</text>
+<text x="300" y="444" text-anchor="end" class="small">n=69</text>
+<line x1="517.9" y1="439" x2="913.7" y2="439" stroke="#afb8c1" stroke-width="3" stroke-linecap="round"/>
+<rect x="510.9" y="432" width="14" height="14" fill="#cf222e" stroke="#ffffff" stroke-width="2" transform="rotate(45 517.9 439)"/>
+<text x="517.9" y="422" text-anchor="middle" class="value" fill="#a40e26">0.062x</text>
+<circle cx="913.7" cy="439" r="9" fill="#1a7f37" stroke="#ffffff" stroke-width="2"/>
+<text x="913.7" y="422" text-anchor="middle" class="value" fill="#116329">7.087x</text>
+<text x="55" y="495" class="row">QRatio</text>
+<text x="300" y="495" text-anchor="end" class="small">n=33</text>
+<line x1="512.9" y1="490" x2="908.7" y2="490" stroke="#afb8c1" stroke-width="3" stroke-linecap="round"/>
+<rect x="505.9" y="483" width="14" height="14" fill="#cf222e" stroke="#ffffff" stroke-width="2" transform="rotate(45 512.9 490)"/>
+<text x="512.9" y="473" text-anchor="middle" class="value" fill="#a40e26">0.059x</text>
+<circle cx="908.7" cy="490" r="9" fill="#1a7f37" stroke="#ffffff" stroke-width="2"/>
+<text x="908.7" y="473" text-anchor="middle" class="value" fill="#116329">6.673x</text>
+<text x="55" y="546" class="row">PartialRatio</text>
+<text x="300" y="546" text-anchor="end" class="small">n=34</text>
+<line x1="464.4" y1="541" x2="838.2" y2="541" stroke="#afb8c1" stroke-width="3" stroke-linecap="round"/>
+<rect x="457.4" y="534" width="14" height="14" fill="#cf222e" stroke="#ffffff" stroke-width="2" transform="rotate(45 464.4 541)"/>
+<text x="464.4" y="524" text-anchor="middle" class="value" fill="#a40e26">0.033x</text>
+<circle cx="838.2" cy="541" r="9" fill="#1a7f37" stroke="#ffffff" stroke-width="2"/>
+<text x="838.2" y="524" text-anchor="middle" class="value" fill="#116329">2.871x</text>
+<text x="55" y="597" class="row">TokenSortRatio</text>
+<text x="300" y="597" text-anchor="end" class="small">n=34</text>
+<line x1="510.4" y1="592" x2="785.8" y2="592" stroke="#afb8c1" stroke-width="3" stroke-linecap="round"/>
+<rect x="503.4" y="585" width="14" height="14" fill="#cf222e" stroke="#ffffff" stroke-width="2" transform="rotate(45 510.4 592)"/>
+<text x="510.4" y="575" text-anchor="middle" class="value" fill="#a40e26">0.057x</text>
+<circle cx="785.8" cy="592" r="9" fill="#1a7f37" stroke="#ffffff" stroke-width="2"/>
+<text x="785.8" y="575" text-anchor="middle" class="value" fill="#116329">1.535x</text>
+<text x="55" y="648" class="row">TokenSetRatio</text>
+<text x="300" y="648" text-anchor="end" class="small">n=35</text>
+<line x1="514.5" y1="643" x2="675.7" y2="643" stroke="#afb8c1" stroke-width="3" stroke-linecap="round"/>
+<rect x="507.5" y="636" width="14" height="14" fill="#cf222e" stroke="#ffffff" stroke-width="2" transform="rotate(45 514.5 643)"/>
+<text x="514.5" y="626" text-anchor="middle" class="value" fill="#a40e26">0.060x</text>
+<circle cx="675.7" cy="643" r="9" fill="#1a7f37" stroke="#ffffff" stroke-width="2"/>
+<text x="675.7" y="626" text-anchor="middle" class="value" fill="#116329">0.411x</text>
+<text x="55" y="699" class="row">PartialTokenSortRatio</text>
+<text x="300" y="699" text-anchor="end" class="small">n=35</text>
+<line x1="475.4" y1="694" x2="835.6" y2="694" stroke="#afb8c1" stroke-width="3" stroke-linecap="round"/>
+<rect x="468.4" y="687" width="14" height="14" fill="#cf222e" stroke="#ffffff" stroke-width="2" transform="rotate(45 475.4 694)"/>
+<text x="475.4" y="677" text-anchor="middle" class="value" fill="#a40e26">0.037x</text>
+<circle cx="835.6" cy="694" r="9" fill="#1a7f37" stroke="#ffffff" stroke-width="2"/>
+<text x="835.6" y="677" text-anchor="middle" class="value" fill="#116329">2.784x</text>
+<text x="55" y="750" class="row">PartialTokenSetRatio</text>
+<text x="300" y="750" text-anchor="end" class="small">n=35</text>
+<line x1="514.9" y1="745" x2="662.3" y2="745" stroke="#afb8c1" stroke-width="3" stroke-linecap="round"/>
+<rect x="507.9" y="738" width="14" height="14" fill="#cf222e" stroke="#ffffff" stroke-width="2" transform="rotate(45 514.9 745)"/>
+<text x="514.9" y="728" text-anchor="middle" class="value" fill="#a40e26">0.060x</text>
+<circle cx="662.3" cy="745" r="9" fill="#1a7f37" stroke="#ffffff" stroke-width="2"/>
+<text x="662.3" y="728" text-anchor="middle" class="value" fill="#116329">0.350x</text>
+<text x="55" y="801" class="row">WRatio</text>
+<text x="300" y="801" text-anchor="end" class="small">n=35</text>
+<line x1="450.9" y1="796" x2="810.6" y2="796" stroke="#afb8c1" stroke-width="3" stroke-linecap="round"/>
+<rect x="443.9" y="789" width="14" height="14" fill="#cf222e" stroke="#ffffff" stroke-width="2" transform="rotate(45 450.9 796)"/>
+<text x="450.9" y="779" text-anchor="middle" class="value" fill="#a40e26">0.028x</text>
+<circle cx="810.6" cy="796" r="9" fill="#1a7f37" stroke="#ffffff" stroke-width="2"/>
+<text x="810.6" y="779" text-anchor="middle" class="value" fill="#116329">2.064x</text>
+<text x="60" y="895" class="note">Each marker pair uses identical inputs and excludes unstable cases. Each case contributes equally to its algorithm geomean.</text>
+</svg>

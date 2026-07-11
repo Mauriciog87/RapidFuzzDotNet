@@ -170,6 +170,10 @@ A speedup above `1x` favors .NET. A value below `1x` favors the comparison runti
 
 ![RapidFuzzDotNet benchmark speedup by category](assets/benchmarks/benchmark-category-speedups.svg)
 
+![RapidFuzzDotNet benchmark speedup by algorithm](assets/benchmarks/benchmark-algorithm-speedups.svg)
+
+The algorithm view uses 489 exact shared stable cases. In that subset, .NET beat Python on every algorithm aggregate except `TokenSetRatio` and `PartialTokenSetRatio`.
+
 ![RapidFuzzDotNet benchmark case outcomes against C++](assets/benchmarks/benchmark-case-outcomes.svg)
 
 These numbers are not a victory lap. C++ won nearly every direct comparison. .NET did well against the Python binding and found two Levenshtein wins, but the native implementation remains the performance target.
