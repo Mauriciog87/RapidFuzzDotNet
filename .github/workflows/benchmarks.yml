@@ -274,6 +274,7 @@ jobs:
             --validate-only --output artifacts/benchmark-run/validation/python.json
           taskset -c "$BENCH_CPU" artifacts/benchmark-venv/bin/python benchmarks/cross-language/benchmark_python.py \
             -o artifacts/benchmark-run/common/python.json \
+            --inherit-environ=RAPIDFUZZ_BENCHMARK_CORPUS,RAPIDFUZZ_BENCHMARK_TIER,RAPIDFUZZ_BENCHMARK_PROFILE,RAPIDFUZZ_BENCHMARK_RUNTIME,OMP_NUM_THREADS,OPENBLAS_NUM_THREADS,MKL_NUM_THREADS,NUMEXPR_NUM_THREADS \
             2>&1 | tee artifacts/benchmark-run/common/python.log
       - name: Run official suites
         if: env.MODE == 'official' || env.MODE == 'all'
