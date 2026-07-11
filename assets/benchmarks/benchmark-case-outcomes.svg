@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+<title id="title">Case outcomes against the fastest C++ result</title>
+<desc id="desc">Out of 536 stable comparable cases, .NET 10 was faster in 2 and slower in 534. Both wins were equal-input static Levenshtein cases at lengths 256 and 1024.</desc>
+<style>
+text { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #1f2328; letter-spacing: 0; }
+.title { font-size: 30px; font-weight: 700; }
+.subtitle { font-size: 17px; fill: #57606a; }
+.big { font-size: 42px; font-weight: 750; }
+.label { font-size: 18px; font-weight: 600; }
+.section { font-size: 20px; font-weight: 700; }
+.case { font-size: 16px; }
+.value { font-size: 18px; font-weight: 700; }
+.note { font-size: 15px; fill: #57606a; }
+</style>
+<rect width="1200" height="620" fill="#ffffff"/>
+<rect x="1" y="1" width="1198" height="618" rx="8" fill="none" stroke="#d0d7de" stroke-width="2"/>
+<text x="60" y="56" class="title">Case outcomes against the fastest C++ result</text>
+<text x="60" y="87" class="subtitle">536 stable, semantically comparable .NET 10 cases</text>
+<rect x="60" y="120" width="515" height="92" rx="6" fill="#dafbe1" stroke="#4ac26b"/>
+<text x="88" y="166" class="big" fill="#116329">2</text>
+<text x="150" y="154" class="label" fill="#116329">.NET wins</text>
+<text x="150" y="181" class="note">0.37% of eligible cases</text>
+<rect x="625" y="120" width="515" height="92" rx="6" fill="#ffebe9" stroke="#ff8182"/>
+<text x="653" y="166" class="big" fill="#a40e26">534</text>
+<text x="760" y="154" class="label" fill="#a40e26">.NET losses</text>
+<text x="760" y="181" class="note">99.63% of eligible cases · 0 ties</text>
+<rect x="80" y="245" width="1040" height="32" rx="4" fill="#cf222e"/>
+<rect x="80" y="245" width="3.88" height="32" rx="2" fill="#1a7f37"/>
+<line x1="83.88" y1="238" x2="170" y2="218" stroke="#1a7f37" stroke-width="2"/>
+<text x="178" y="223" class="note" fill="#116329">Exact scale: green is 2 of 536</text>
+<text x="60" y="335" class="section">The two wins</text>
+<rect x="60" y="358" width="540" height="70" rx="6" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="84" y="387" class="case">Levenshtein · static · length 1024 · equal input</text>
+<text x="84" y="414" class="value" fill="#116329">3.157x faster than C++</text>
+<rect x="60" y="443" width="540" height="70" rx="6" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="84" y="472" class="case">Levenshtein · static · length 256 · equal input</text>
+<text x="84" y="499" class="value" fill="#116329">2.018x faster than C++</text>
+<text x="660" y="335" class="section">Losses by category</text>
+<text x="660" y="382" class="label">Batch</text>
+<text x="1090" y="382" text-anchor="end" class="value" fill="#a40e26">8 / 8</text>
+<line x1="760" y1="376" x2="1000" y2="376" stroke="#d0d7de" stroke-width="12" stroke-linecap="round"/>
+<line x1="760" y1="376" x2="1000" y2="376" stroke="#cf222e" stroke-width="12" stroke-linecap="round"/>
+<text x="660" y="437" class="label">Core</text>
+<text x="1090" y="437" text-anchor="end" class="value" fill="#a40e26">258 / 260</text>
+<line x1="760" y1="431" x2="1000" y2="431" stroke="#d0d7de" stroke-width="12" stroke-linecap="round"/>
+<line x1="760" y1="431" x2="998.15" y2="431" stroke="#cf222e" stroke-width="12" stroke-linecap="round"/>
+<text x="660" y="492" class="label">Fuzz</text>
+<text x="1090" y="492" text-anchor="end" class="value" fill="#a40e26">268 / 268</text>
+<line x1="760" y1="486" x2="1000" y2="486" stroke="#d0d7de" stroke-width="12" stroke-linecap="round"/>
+<line x1="760" y1="486" x2="1000" y2="486" stroke="#cf222e" stroke-width="12" stroke-linecap="round"/>
+<text x="60" y="574" class="note">Eight additional .NET 10 cases were excluded because their coefficient of variation exceeded 10%.</text>
+</svg>

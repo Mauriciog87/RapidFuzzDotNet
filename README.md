@@ -160,6 +160,24 @@ The repository carries an auditor that checks the pinned upstream SHA, public al
 
 That machinery is here for one reason: a port should earn trust by agreeing with its source, not by borrowing the source project's reputation.
 
+## Benchmarks
+
+The first reviewed cross-language run compared `net10.0` with the fastest result from the original C++ benchmarks compiled by GCC 14 and Clang 18, plus RapidFuzz Python built from source. Every runtime used the same deterministic ASCII corpus on one Ubuntu runner. Results were checked before timing, and cases with more than 10% variation were excluded.
+
+A speedup above `1x` favors .NET. A value below `1x` favors the comparison runtime. C++ and .NET covered 544 cases; 536 met the stability rule for direct comparison. Python supplied results for 496 applicable shared cases.
+
+![RapidFuzzDotNet overall benchmark summary](assets/benchmarks/benchmark-overview.svg)
+
+![RapidFuzzDotNet benchmark speedup by category](assets/benchmarks/benchmark-category-speedups.svg)
+
+![RapidFuzzDotNet benchmark case outcomes against C++](assets/benchmarks/benchmark-case-outcomes.svg)
+
+These numbers are not a victory lap. C++ won nearly every direct comparison. .NET did well against the Python binding and found two Levenshtein wins, but the native implementation remains the performance target.
+
+Run [`29145006354`](https://github.com/Mauriciog87/RapidFuzzDotNet/actions/runs/29145006354) completed on July 11, 2026, on an AMD EPYC 9V74 runner with four logical CPUs visible; timed processes were pinned to one core. It used .NET commit `25cf5ea`, `rapidfuzz-cpp` commit `b5830af`, RapidFuzz Python commit `e891fed`, and corpus SHA-256 `3353b58f031a24ba87dbc1798edaaf4451797e49878d3d08c15ecf3c6714052c`. The [raw artifact](https://github.com/Mauriciog87/RapidFuzzDotNet/actions/runs/29145006354/artifacts/8249111193) contains the JSON, CSV, HTML, and original logs.
+
+The benchmark shapes and algorithms come from Max Bachmann's original RapidFuzz work. This project supplied the managed port and the cross-language harness. The complete benchmark implementation remains on the [`codex/benchmarks-official-comparison`](https://github.com/Mauriciog87/RapidFuzzDotNet/tree/codex/benchmarks-official-comparison) branch.
+
 ## Build And Test
 
 ```powershell
