@@ -344,46 +344,6 @@ jobs:
             --corpus artifacts/benchmark-corpus \
             | tee artifacts/benchmark-run/metadata/official-results.json
           printf '## Official benchmark inventory\n\n- 77 C++ registrations expanded to 108 measured workloads per compiler and .NET runtime.\n- 8 Python scorers were captured.\n\n' >> "$GITHUB_STEP_SUMMARY"
-      - name: Run .NET supplementary suite
-        if: env.MODE == 'all'
-        run: |
-          filters=(
-            "*RapidFuzzDotNet.Benchmarks.FuzzBenchmarks.*"
-            "*RapidFuzzDotNet.Benchmarks.TokenizationBenchmarkParityBenchmarks.*"
-            "*RapidFuzzDotNet.Benchmarks.LevenshteinBenchmarks.*"
-            "*RapidFuzzDotNet.Benchmarks.LcsBenchmarks.*"
-            "*RapidFuzzDotNet.Benchmarks.JaroWinklerBenchmarks.*"
-            "*RapidFuzzDotNet.Benchmarks.UpstreamRegistrationBenchmarks.*"
-            "*RapidFuzzDotNet.Benchmarks.UpstreamBenchmarkParityBenchmarks.*"
-            "*RapidFuzzDotNet.Benchmarks.DistanceBenchmarks.*"
-            "*RapidFuzzDotNet.Benchmarks.ProcessBenchmarks.*"
-            "*RapidFuzzDotNet.Benchmarks.ExperimentalBenchmarks.*"
-            "*RapidFuzzDotNet.Benchmarks.ManagedParityBenchmarks.*"
-            "*RapidFuzzDotNet.Benchmarks.PartialRatioOptimizationBenchmarks.*"
-            "*RapidFuzzDotNet.Benchmarks.JaroSimdBenchmarks.*"
-          )
-          for framework in net8.0 net10.0; do
-            if [ "$framework" = net8.0 ]; then
-              runtime=dotnet-net8
-            else
-              runtime=dotnet-net10
-            fi
-            taskset -c "$BENCH_CPU" dotnet run --project benchmarks/RapidFuzzDotNet.Benchmarks/RapidFuzzDotNet.Benchmarks.csproj \
-              -c Release -f "$framework" --no-build -- \
-              --filter "${filters[@]}" \
-              --launchCount 3 \
-              --warmupCount 1 \
-              --iterationCount 3 \
-              --iterationTime 50 \
-              --join \
-              --artifacts "artifacts/benchmark-run/supplementary/$runtime"
-          done
-      - name: Validate .NET supplementary results
-        if: env.MODE == 'all'
-        run: |
-          artifacts/benchmark-venv/bin/python benchmarks/cross-language/validate_supplementary_results.py \
-            --root artifacts/benchmark-run/supplementary \
-            | tee artifacts/benchmark-run/metadata/supplementary-results.json
       - name: Generate comparison report
         if: env.MODE == 'smoke' || env.MODE == 'common' || env.MODE == 'all'
         run: |
@@ -431,4 +391,111 @@ jobs:
           path: |
             artifacts/benchmark-corpus
             artifacts/benchmark-run
+          if-no-files-found: error
+
+  dotnet-supplementary:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'all'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash --noprofile --norc -eo pipefail {0}
+    env:
+      OMP_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+      NUMEXPR_NUM_THREADS: 1
+      DOTNET_PROCESSOR_COUNT: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: benchmark-nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: benchmark-nuget-${{ runner.os }}-
+      - name: Build supplementary benchmarks
+        run: |
+          dotnet restore benchmarks/RapidFuzzDotNet.Benchmarks/RapidFuzzDotNet.Benchmarks.csproj
+          dotnet build benchmarks/RapidFuzzDotNet.Benchmarks/RapidFuzzDotNet.Benchmarks.csproj -c Release -f net8.0 --no-restore
+          dotnet build benchmarks/RapidFuzzDotNet.Benchmarks/RapidFuzzDotNet.Benchmarks.csproj -c Release -f net10.0 --no-restore
+      - name: Capture supplementary runner metadata
+        run: |
+          mkdir -p artifacts/benchmark-run/supplementary/metadata
+          python3 - <<'PY'
+          import json
+          import os
+          import platform
+          import subprocess
+          from pathlib import Path
+          def output(command: list[str]) -> str:
+              return subprocess.check_output(command, text=True).strip()
+          metadata = {
+              "commit": os.environ["GITHUB_SHA"],
+              "date": output(["date", "--iso-8601=seconds"]),
+              "dotnet": output(["dotnet", "--version"]),
+              "logical_cpu_count": os.cpu_count(),
+              "machine": platform.machine(),
+              "platform": platform.platform(),
+              "processor": output(["bash", "-lc", "lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -1"]),
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_url": f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+              "runner": os.environ.get("RUNNER_NAME"),
+              "runner_image": os.environ.get("ImageOS", "ubuntu-24.04"),
+          }
+          Path("artifacts/benchmark-run/supplementary/metadata/hardware.json").write_text(
+              json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as stream:
+              stream.write(f"BENCH_CPU={min(os.sched_getaffinity(0))}\n")
+          PY
+      - name: Run .NET supplementary suite
+        run: |
+          filters=(
+            "*RapidFuzzDotNet.Benchmarks.FuzzBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.TokenizationBenchmarkParityBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.LevenshteinBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.LcsBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.JaroWinklerBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.UpstreamRegistrationBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.UpstreamBenchmarkParityBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.DistanceBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.ProcessBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.ExperimentalBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.ManagedParityBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.PartialRatioOptimizationBenchmarks.*"
+            "*RapidFuzzDotNet.Benchmarks.JaroSimdBenchmarks.*"
+          )
+          for framework in net8.0 net10.0; do
+            if [ "$framework" = net8.0 ]; then
+              runtime=dotnet-net8
+            else
+              runtime=dotnet-net10
+            fi
+            taskset -c "$BENCH_CPU" dotnet run --project benchmarks/RapidFuzzDotNet.Benchmarks/RapidFuzzDotNet.Benchmarks.csproj \
+              -c Release -f "$framework" --no-build -- \
+              --filter "${filters[@]}" \
+              --launchCount 3 \
+              --warmupCount 1 \
+              --iterationCount 3 \
+              --iterationTime 50 \
+              --join \
+              --artifacts "artifacts/benchmark-run/supplementary/$runtime"
+          done
+      - name: Validate .NET supplementary results
+        run: |
+          python3 benchmarks/cross-language/validate_supplementary_results.py \
+            --root artifacts/benchmark-run/supplementary \
+            | tee artifacts/benchmark-run/supplementary/metadata/results.json
+          printf '## .NET supplementary benchmark inventory\n\n- 168 benchmark methods expanded to 268 workloads in each runtime.\n\n' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: RapidFuzzDotNet-benchmark-supplementary-${{ github.run_id }}
+          path: artifacts/benchmark-run/supplementary
           if-no-files-found: error
