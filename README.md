@@ -164,13 +164,13 @@ That machinery is here for one reason: a port should earn trust by agreeing with
 
 The first reviewed cross-language run compared `net10.0` with the fastest result from the original C++ benchmarks compiled by GCC 14 and Clang 18, plus RapidFuzz Python built from source. Every runtime used the same deterministic ASCII corpus on one Ubuntu runner. Results were checked before timing, and cases with more than 10% variation were excluded.
 
-A speedup above `1x` favors .NET. A value below `1x` favors the comparison runtime. C++ and .NET covered 544 cases; 536 met the stability rule for direct comparison. Python supplied results for 496 applicable shared cases.
+Every chart names the winner and measured multiplier directly. C++ and Python are shown as separate baselines, so there are no reciprocal speedups or connected scales to interpret. C++ and .NET covered 544 cases; 536 met the stability rule for direct comparison. Python supplied results for 496 applicable shared cases.
 
 ![RapidFuzzDotNet overall benchmark summary](assets/benchmarks/benchmark-overview.svg)
 
-![RapidFuzzDotNet benchmark speedup by category](assets/benchmarks/benchmark-category-speedups.svg)
+![RapidFuzzDotNet benchmark winners by category](assets/benchmarks/benchmark-category-speedups.svg)
 
-![RapidFuzzDotNet benchmark speedup by algorithm](assets/benchmarks/benchmark-algorithm-speedups.svg)
+![RapidFuzzDotNet benchmark winners by algorithm](assets/benchmarks/benchmark-algorithm-speedups.svg)
 
 The algorithm view uses 489 exact shared stable cases. In that subset, .NET beat Python on every algorithm aggregate except `TokenSetRatio` and `PartialTokenSetRatio`.
 
